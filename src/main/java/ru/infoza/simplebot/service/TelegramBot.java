@@ -537,7 +537,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void startCommandReceived(Long chatId, String name) {
-        String answer = EmojiParser.parseToUnicode("Добрый день, " + name + "! \nДобро пожаловать!" + " :blush:");
+        String answer = EmojiParser.parseToUnicode("Добро пожаловать, " + name + "! :blush: \nВыберите необходимый пункт в меню");
         log.info("Replied to user " + name);
         sendMessage(chatId, answer);
     }
