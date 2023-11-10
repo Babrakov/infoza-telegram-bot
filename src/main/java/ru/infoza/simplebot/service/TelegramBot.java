@@ -621,7 +621,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         // and assign this list to our keyboard
         replyKeyboardMarkup.setKeyboard(keyboard);
         sendMessageWithKeyboard(chatId, "Вы не авторизованы. Пожалуйста, предоставьте боту доступ к Вашему номеру телефона. \n" +
-                "Важно: номер телефона должен быть указан в \"Настройках\" на сайте infoza.ru", replyKeyboardMarkup);
+                "Важно: номер телефона должен быть указан у Вас в \"Настройках\" на сайте infoza.ru", replyKeyboardMarkup);
     }
 
     private ReplyKeyboardMarkup mainFuncKeyboardMarkup() {
