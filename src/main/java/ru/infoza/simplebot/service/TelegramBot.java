@@ -303,7 +303,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             List<InfozaJuridicalPersonRem> orgs = infozaJuridicalPersonService.findRemarkListByINN(query);
 
             for (InfozaJuridicalPersonRem org: orgs) {
-                InfozaIst ist = infozaUserService.findIstById(org.getInIST()).orElseThrow();;
+                InfozaIst ist = infozaUserService.findIstById(org.getInIST()).orElseThrow();
 
                 String date = getFormattedDate(org.getDtCRE());
                 String answer = getRemark(org.getVcREM(), ist.getVcORG(), date);
@@ -320,7 +320,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             StringBuilder answer = new StringBuilder();
             for (InfozaJuridicalPerson person: infozaJuridicalPerson) {
-                InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();;
+                InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();
 
                 String date = getFormattedDate(person.getDtCRE());
 
@@ -328,7 +328,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 List<InfozaJuridicalPersonRequest> requests = infozaJuridicalPersonService.findRequestListByPersonId(person.getId());
                 for (InfozaJuridicalPersonRequest request: requests) {
-                    InfozaIst requestIst = infozaUserService.findIstById(request.getInIST()).orElseThrow();;
+                    InfozaIst requestIst = infozaUserService.findIstById(request.getInIST()).orElseThrow();
                     String requestDate = getFormattedDate(request.getDtCRE());
                     if (!requestIst.equals(ist) && !requestDate.equals(date))
                         answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
@@ -383,7 +383,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
         }
         for (InfozaPhysicalPersonRem person: physics) {
-            InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();;
+            InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();
             String info = person.getVcREM();
             Long inFls = person.getInFLS();
             if (inFls != 0) {
@@ -396,7 +396,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         StringBuilder answer = new StringBuilder();
         for (InfozaPhysicalPersonRequest request: requests) {
-            InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();;
+            InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
 
             String date = getFormattedDate(request.getDtCRE());
 
