@@ -1,11 +1,9 @@
-package ru.infoza.simplebot.repository.info;
+package ru.infoza.simplebot.repository.infoza;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
-import ru.infoza.simplebot.model.info.InfozaIst;
-import ru.infoza.simplebot.model.info.InfozaUser;
+import ru.infoza.simplebot.model.infoza.InfozaIst;
 
 import java.util.List;
 

@@ -3,7 +3,6 @@ package ru.infoza.simplebot.config;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,20 +18,20 @@ import javax.sql.DataSource;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = {"ru.infoza.simplebot.repository.info"},
+        basePackages = {"ru.infoza.simplebot.repository.infoza"},
         entityManagerFactoryRef = "infoEntityManagerFactory",
         transactionManagerRef = "infoTransactionManager"
 )
-public class InfoDataSourceConfig {
+public class InfozaDataSourceConfig {
 
     @Bean
-    @ConfigurationProperties("spring.datasource.info")
+    @ConfigurationProperties("spring.datasource.infoza")
     public DataSourceProperties infoDataSourceProperties() {
         return new DataSourceProperties();
     }
 
     @Bean
-    public DataSource infoDataSource() {
+    public DataSource infozaDataSource() {
         return infoDataSourceProperties()
                 .initializeDataSourceBuilder()
                 .build();
@@ -41,11 +40,11 @@ public class InfoDataSourceConfig {
     @Bean(name = "infoEntityManagerFactory")
     public LocalContainerEntityManagerFactoryBean infoEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
-            @Qualifier("infoDataSource") DataSource dataSource) {
+            @Qualifier("infozaDataSource") DataSource dataSource) {
         return builder
                 .dataSource(dataSource)
-                .packages("ru.infoza.simplebot.model.info")
-                .persistenceUnit("info")
+                .packages("ru.infoza.simplebot.model.infoza")
+                .persistenceUnit("infoza")
                 .build();
     }
 

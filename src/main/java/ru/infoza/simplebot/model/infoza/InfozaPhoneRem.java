@@ -1,4 +1,4 @@
-package ru.infoza.simplebot.model.info;
+package ru.infoza.simplebot.model.infoza;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -11,17 +11,17 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "z_remo")
-public class InfozaJuridicalPersonRem {
+@Table(name = "z_remp")
+public class InfozaPhoneRem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "idZRO", columnDefinition = "int UNSIGNED not null")
+    @Column(name = "idZRP", columnDefinition = "int UNSIGNED not null")
     private Long id;
 
-    @Size(max = 12)
+    @Size(max = 10)
     @NotNull
-    @Column(name = "vcINN", nullable = false, length = 12)
-    private String vcINN;
+    @Column(name = "vcPHO", nullable = false, length = 10)
+    private String vcPHO;
 
     @Column(name = "inTIP", columnDefinition = "int UNSIGNED not null")
     private Long inTIP;

@@ -1,7 +1,7 @@
-package ru.infoza.simplebot.repository.info;
+package ru.infoza.simplebot.repository.infoza;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import ru.infoza.simplebot.model.info.InfozaPhoneRequest;
+import ru.infoza.simplebot.model.infoza.InfozaPhoneRequest;
 
 import java.util.List;
 

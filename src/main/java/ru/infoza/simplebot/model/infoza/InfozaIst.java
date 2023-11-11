@@ -1,4 +1,4 @@
-package ru.infoza.simplebot.model.info;
+package ru.infoza.simplebot.model.infoza;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -7,8 +7,6 @@ import lombok.ToString;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
 import java.sql.Timestamp;
 
 @Getter

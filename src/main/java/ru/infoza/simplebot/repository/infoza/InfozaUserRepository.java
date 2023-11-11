@@ -1,8 +1,7 @@
-package ru.infoza.simplebot.repository.info;
+package ru.infoza.simplebot.repository.infoza;
 
 import org.springframework.data.repository.CrudRepository;
-import ru.infoza.simplebot.model.info.InfozaIst;
-import ru.infoza.simplebot.model.info.InfozaUser;
+import ru.infoza.simplebot.model.infoza.InfozaUser;
 
 import java.util.List;
 

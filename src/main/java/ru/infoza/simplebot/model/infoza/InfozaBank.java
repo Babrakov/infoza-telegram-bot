@@ -1,4 +1,4 @@
-package ru.infoza.simplebot.model.info;
+package ru.infoza.simplebot.model.infoza;
 
 import lombok.Getter;
 import lombok.Setter;
