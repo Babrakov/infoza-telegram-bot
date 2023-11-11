@@ -19,26 +19,26 @@ import javax.sql.DataSource;
 @EnableTransactionManagement
 @EnableJpaRepositories(
         basePackages = {"ru.infoza.bot.repository.infoza"},
-        entityManagerFactoryRef = "infoEntityManagerFactory",
-        transactionManagerRef = "infoTransactionManager"
+        entityManagerFactoryRef = "infozaEntityManagerFactory",
+        transactionManagerRef = "infozaTransactionManager"
 )
 public class InfozaDataSourceConfig {
 
     @Bean
     @ConfigurationProperties("spring.datasource.infoza")
-    public DataSourceProperties infoDataSourceProperties() {
+    public DataSourceProperties infozaDataSourceProperties() {
         return new DataSourceProperties();
     }
 
     @Bean
     public DataSource infozaDataSource() {
-        return infoDataSourceProperties()
+        return infozaDataSourceProperties()
                 .initializeDataSourceBuilder()
                 .build();
     }
 
-    @Bean(name = "infoEntityManagerFactory")
-    public LocalContainerEntityManagerFactoryBean infoEntityManagerFactory(
+    @Bean(name = "infozaEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean infozaEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("infozaDataSource") DataSource dataSource) {
         return builder
@@ -48,10 +48,10 @@ public class InfozaDataSourceConfig {
                 .build();
     }
 
-    @Bean(name = "infoTransactionManager")
-    public PlatformTransactionManager infoTransactionManager(
-            @Qualifier("infoEntityManagerFactory") EntityManagerFactory infoEntityManagerFactory) {
-        return new JpaTransactionManager(infoEntityManagerFactory);
+    @Bean(name = "infozaTransactionManager")
+    public PlatformTransactionManager infozaTransactionManager(
+            @Qualifier("infozaEntityManagerFactory") EntityManagerFactory infozaEntityManagerFactory) {
+        return new JpaTransactionManager(infozaEntityManagerFactory);
     }
 
 
