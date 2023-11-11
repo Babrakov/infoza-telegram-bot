@@ -8,7 +8,7 @@ public class PhysicalPersonUtils {
 
     public static String md5Hash(String input){
         // Create an instance of the MD5 message digest algorithm
-        MessageDigest md5 = null;
+        MessageDigest md5;
         try {
             md5 = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
