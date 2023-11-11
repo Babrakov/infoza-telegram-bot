@@ -1,4 +1,4 @@
-# Infoza telegram bot
+# Infoza Telegram Bot
 
 Start MySQL:
 ```

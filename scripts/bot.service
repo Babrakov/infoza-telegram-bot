@@ -12,7 +12,14 @@ Group=root
 
 Type=simple
 
-ExecStart=java -jar java -jar -DBOT_DB_USERNAME=username -DBOT_DB_PASSWORD=password /opt/bots/simple-bot.jar
+ExecStart=java -jar \
+    -DBOT_DB_USERNAME=username \
+    -DBOT_DB_PASSWORD=password \
+    -DINFOZA_DB_USERNAME=username \
+    -DINFOZA_DB_PASSWORD=password \
+    -DBOT_TOKEN=token \
+    -DBOT_OWNER=owner \
+    /opt/bots/simple-bot.jar
 
 [Install]
 WantedBy=multi-user.target
