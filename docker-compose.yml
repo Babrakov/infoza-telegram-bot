@@ -5,6 +5,8 @@ services:
     volumes:
       # Where our data will be persisted
       - ./db:/var/lib/mysql
+      # To create a second DB
+      - ./init:/docker-entrypoint-initdb.d
     restart: 'always'
     expose:
       # Opens port 3306 on the container
