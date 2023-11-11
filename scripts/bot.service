@@ -1,14 +1,12 @@
 [Unit]
-Description=Simple Telegram Spring Bot
+Description=Infoza Telegram Bot
 After=syslog.target network.target
 
 [Service]
 SuccessExitStatus=143
 
-
 User=root
 Group=root
-
 
 Type=simple
 
@@ -19,7 +17,7 @@ ExecStart=java -jar \
     -DINFOZA_DB_PASSWORD=password \
     -DBOT_TOKEN=token \
     -DBOT_OWNER=owner \
-    /opt/bots/simple-bot.jar
+    /opt/bots/bot.jar
 
 [Install]
 WantedBy=multi-user.target
