@@ -22,16 +22,18 @@ import ru.infoza.simplebot.config.BotConfig;
 import ru.infoza.simplebot.config.state.BotState;
 import ru.infoza.simplebot.config.state.BotStateContext;
 import ru.infoza.simplebot.model.bot.BotUser;
-import ru.infoza.simplebot.model.info.*;
-import ru.infoza.simplebot.repository.bot.BotUserRepository;
-import ru.infoza.simplebot.repository.info.*;
+import ru.infoza.simplebot.model.infoza.*;
+import ru.infoza.simplebot.service.bot.BotService;
+import ru.infoza.simplebot.service.infoza.*;
 
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import static ru.infoza.simplebot.util.BotConstants.*;
 import static ru.infoza.simplebot.util.JuridicalPersonUtils.isValidINN;
 import static ru.infoza.simplebot.util.PhoneUtils.formatPhoneNumber;
 import static ru.infoza.simplebot.util.PhoneUtils.formatPhoneNumberTenDigits;
@@ -41,59 +43,30 @@ import static ru.infoza.simplebot.util.PhysicalPersonUtils.resolvedInFls;
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
-    private final InfozaJuridicalPersonRepository infozaJuridicalPersonRepository;
-    private final InfozaPhoneRepository infozaPhoneRepository;
 
-    public static final String EMPLOYEES = "Безопасники";
-    public static final String FLS = "Физики";
-    public static final String ULS = "Организации";
-    public static final String PHONES = "Телефоны";
-    public static final String CANCEL_REQUEST = "Запрос отменен";
-    final BotConfig config;
-    private final BotUserRepository botUserRepository;
-    private final InfozaIstRepository infozaIstRepository;
-    private final InfozaUserRepository infozaUserRepository;
-    private final InfozaPhoneRemRepository infozaPhoneRemRepository;
-    private final InfozaJuridicalPersonRemRepository infozaJuridicalPersonRemRepository;
-    private final InfozaPhysicalPersonRemRepository infozaPhysicalPersonRemRepository;
-    private final InfozaPhoneRequestRepository infozaPhoneRequestRepository;
-    private final InfozaPhysicalPersonRequestRepository infozaPhysicalPersonRequestRepository;
-    private final InfozaJuridicalPersonRequestRepository infozaJuridicalPersonRequestRepository;
-    private final InfozaJuridicalPersonAccountRepository infozaJuridicalPersonAccountRepository;
-    private final InfozaBankRepository infozaBankRepository;
+    private final BotConfig config;
     private final BotStateContext botStateContext;
-
-    static final String HELP_TEXT = "Бот предназначен для работы с ИНФОЗА.\n\n" +
-            "Вы можете выполнить команду из основного меню слева или набрать команду вручную:\n\n" +
-            "Введите /start чтобы показать приветствие\n\n" +
-            "Введите /help чтобы показать данное сообщение\n\n" +
-            "Введите /login чтобы зарегистрироваться\n\n" +
-            "Введите /main чтобы показать основное меню\n\n" +
-            "Введите /logout чтобы выйти";
-
-    public static final String CANCEL_BUTTON = "CANCEL_BUTTON";
-
-    static final String ERROR_TEXT = "Error occurred: ";
+    private final BotService botService;
+    private final InfozaPhoneService infozaPhoneService;
+    private final InfozaUserService infozaUserService;
+    private final InfozaPhysicalPersonService infozaPhysicalPersonService;
+    private final InfozaJuridicalPersonService infozaJuridicalPersonService;
+    private final InfozaBankService infozaBankService;
 
 
-    public TelegramBot(BotConfig config, BotUserRepository botUserRepository,
-                       InfozaUserRepository infozaUserRepository, InfozaIstRepository infozaIstRepository,
-                       InfozaPhoneRemRepository infozaPhoneRemRepository, InfozaJuridicalPersonRemRepository infozaJuridicalPersonRemRepository, InfozaPhysicalPersonRemRepository infozaPhysicalPersonRemRepository, InfozaPhysicalPersonRequestRepository infozaPhysicalPersonRequestRepository, BotStateContext botStateContext,
-                       InfozaPhoneRepository infozaPhoneRepository, InfozaPhoneRequestRepository infozaPhoneRequestRepository, InfozaJuridicalPersonRequestRepository infozaJuridicalPersonRequestRepository,
-                       InfozaJuridicalPersonRepository infozaJuridicalPersonRepository, InfozaJuridicalPersonAccountRepository infozaJuridicalPersonAccountRepository, InfozaBankRepository infozaBankRepository) {
+    public TelegramBot(BotConfig config, BotService botService, BotStateContext botStateContext,
+                       InfozaPhoneService infozaPhoneService, InfozaUserService infozaUserService,
+                       InfozaPhysicalPersonService infozaPhysicalPersonService,
+                       InfozaJuridicalPersonService infozaJuridicalPersonService,
+                       InfozaBankService infozaBankService) {
         this.config = config;
-        this.botUserRepository = botUserRepository;
-        this.infozaUserRepository = infozaUserRepository;
-        this.infozaIstRepository = infozaIstRepository;
-        this.infozaPhoneRemRepository = infozaPhoneRemRepository;
-        this.infozaJuridicalPersonRemRepository = infozaJuridicalPersonRemRepository;
-        this.infozaPhysicalPersonRemRepository = infozaPhysicalPersonRemRepository;
-        this.infozaPhysicalPersonRequestRepository = infozaPhysicalPersonRequestRepository;
+        this.infozaPhoneService = infozaPhoneService;
+        this.botService = botService;
+        this.infozaUserService = infozaUserService;
+        this.infozaPhysicalPersonService = infozaPhysicalPersonService;
+        this.infozaJuridicalPersonService = infozaJuridicalPersonService;
         this.botStateContext = botStateContext;
-        this.infozaPhoneRequestRepository = infozaPhoneRequestRepository;
-        this.infozaJuridicalPersonRequestRepository = infozaJuridicalPersonRequestRepository;
-        this.infozaJuridicalPersonAccountRepository = infozaJuridicalPersonAccountRepository;
-        this.infozaBankRepository = infozaBankRepository;
+        this.infozaBankService = infozaBankService;
 
         List<BotCommand> listCommands = new ArrayList<>();
         listCommands.add(new BotCommand("/start", "Запустить бота"));
@@ -104,10 +77,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             this.execute(new SetMyCommands(listCommands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
-            log.error("Error setting bots command list: " + e.getMessage());
+            log.error("Ошибка в настройке списка команд ботов: " + e.getMessage());
         }
-        this.infozaPhoneRepository = infozaPhoneRepository;
-        this.infozaJuridicalPersonRepository = infozaJuridicalPersonRepository;
     }
 
     @Override
@@ -130,7 +101,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (messageText.contains("/send") && config.getOwnerId() == chatId) {
                 var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
-                var users = botUserRepository.findAll();
+                var users = botService.findUserList();
                 for (BotUser botUser : users) {
                     sendMessage(botUser.getChatId(), textToSend);
                 }
@@ -188,7 +159,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                     case "/logout":
                         if (isUserRegistered(update.getMessage().getChatId())) {
-                            botUserRepository.findById(update.getMessage().getChatId()).ifPresent(botUserRepository::delete);
+                            botService.logout(update.getMessage().getChatId());
                         }
                         sendRequestContactMessage(chatId);
                         break;
@@ -196,18 +167,18 @@ public class TelegramBot extends TelegramLongPollingBot {
                         botStateContext.setUserState(chatId, BotState.START);
                         sendMessageWithKeyboard(chatId, CANCEL_REQUEST);
                         break;
-                    case EMPLOYEES:
+                    case EMPLOYEES_BUTTON:
                         botStateContext.setUserState(chatId, BotState.WAITING_FOR_NAME_OR_COMPANY);
                         sendMessageWithRemoveKeyboard(chatId,"Поиск сотрудников СБ");
                         sendMessageWithKeyboard(chatId, "Введите фамилию или название компании для поиска:",inlineKeyboardMarkup);
                         break;
-                    case FLS:
+                    case FLS_BUTTON:
                         proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_FLS, "Ф.И.О. год рождения");
                         break;
-                    case ULS:
+                    case ULS_BUTTON:
                         proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_ULS, "ИНН");
                         break;
-                    case PHONES:
+                    case PHONES_BUTTON:
                         proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_PHONE, "ном. телеф.");
                         break;
                     default:
@@ -215,7 +186,6 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 }
             }
-
 
         } else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
@@ -246,14 +216,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                 formattedPhoneNumber = formattedPhoneNumber.substring(1);
             }
 
-            List<InfozaIst> results = infozaIstRepository.findInfoIstByPhoneNumber(formattedPhoneNumber);
+            List<InfozaIst> results = infozaUserService.findIstListByPhone(formattedPhoneNumber);
 
             if (!results.isEmpty()) {
                 if (results.size()>1) {
                     sendMessage(chatId, "Номер телефона указан у нескольких пользователей");
                 } else {
                     // Номер телефона указан в z_ist
-                    InfozaUser infoUser = infozaUserRepository.findByVcUSR(results.get(0).getVcUSR());
+                    InfozaUser infoUser = infozaUserService.findUserByUserName(results.get(0).getVcUSR());
                     registerUser(update.getMessage(), infoUser, results.get(0).getIdIST());
                     sendMessageWithKeyboard(chatId, "Номер телефона подтвержден");
                 }
@@ -276,43 +246,29 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private boolean checkIfExtendedAccessPermitted(Long chatId) {
-        BotUser user = botUserRepository.findById(chatId).orElseThrow();
+        BotUser user = botService.findUserById(chatId).orElseThrow();
         return user.getTip()>3;
     }
 
     private void showPhoneInfo(String query, long chatId) {
         String formattedPhoneNumber = formatPhoneNumberTenDigits(query);
-        List<InfozaPhoneRem> phones = infozaPhoneRemRepository.findByVcPHO(formattedPhoneNumber);
+        List<InfozaPhoneRem> phones = infozaPhoneService.findRemarksByPhoneNumber(formattedPhoneNumber);
 
-        InfozaPhone infozaPhone = infozaPhoneRepository
-                .findByVcPHO(formattedPhoneNumber);
+        InfozaPhone infozaPhone = infozaPhoneService.findPhoneByPhoneNumber(formattedPhoneNumber);
 
         for (InfozaPhoneRem phone: phones) {
-            InfozaIst ist = infozaIstRepository.findById(phone.getInIST()).orElseThrow();
-
-            String pattern = "dd.MM.yyyy";
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-
-            String date = simpleDateFormat.format(java.util.Date.from(phone.getDtCRE()));
-
-            String answer = phone.getVcREM() +
-                    " \n(источник: <b>" +
-                    ist.getVcORG() +
-                    "</b> " +
-                    date +
-                    ")";
+            InfozaIst ist = infozaUserService.findIstById(phone.getInIST()).orElseThrow();
+            String date = getFormattedDate(phone.getDtCRE());
+            String answer = getRemark(phone.getVcREM(), ist.getVcORG(), date);
             sendMessageWithKeyboard(chatId, answer);
         }
         if (infozaPhone!=null) {
-            List<InfozaPhoneRequest> phoneRequests = infozaPhoneRequestRepository
-                    .findByIdZP(infozaPhone.getId());
+            List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
             StringBuilder answer = new StringBuilder();
             for (InfozaPhoneRequest request: phoneRequests) {
-                InfozaIst ist = infozaIstRepository.findById(request.getInIST()).orElseThrow();
+                InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
 
-                String pattern = "dd.MM.yyyy";
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-                String date = simpleDateFormat.format(java.util.Date.from(request.getDtCRE()));
+                String date = getFormattedDate(request.getDtCRE());
 
                 answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
             }
@@ -321,55 +277,59 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
 
         } else if (phones.isEmpty()) {
-            sendMessageWithKeyboard(chatId, "Информация не найдена");
+            sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
         }
 
+    }
+
+    private static String getRemark(String rem, String ist, String date) {
+        return  rem +
+                " \n(источник: <b>" +
+                ist +
+                "</b> " +
+                date +
+                ")";
+    }
+
+    private static String getFormattedDate(Instant phone) {
+        String pattern = "dd.MM.yyyy";
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        return simpleDateFormat.format(java.util.Date.from(phone));
     }
 
     private void showUlsInfo(String query, long chatId) {
         String inn = query.trim();
         if (isValidINN(inn)) {
-            List<InfozaJuridicalPersonRem> orgs = infozaJuridicalPersonRemRepository.findByVcINN(query);
+            List<InfozaJuridicalPersonRem> orgs = infozaJuridicalPersonService.findRemarkListByINN(query);
 
             for (InfozaJuridicalPersonRem org: orgs) {
-                InfozaIst ist = infozaIstRepository.findById(org.getInIST()).orElseThrow();
+                InfozaIst ist = infozaUserService.findIstById(org.getInIST()).orElseThrow();;
 
-                String pattern = "dd.MM.yyyy";
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-                String date = simpleDateFormat.format(java.util.Date.from(org.getDtCRE()));
-
-                String answer = org.getVcREM() +
-                        " \n(источник: <b>" +
-                        ist.getVcORG() +
-                        "</b> " +
-                        date +
-                        ")";
+                String date = getFormattedDate(org.getDtCRE());
+                String answer = getRemark(org.getVcREM(), ist.getVcORG(), date);
                 sendMessageWithKeyboard(chatId, answer);
             }
 
-            List<InfozaJuridicalPersonAccount> accounts = infozaJuridicalPersonAccountRepository.findByVcINN(inn);
+            List<InfozaJuridicalPersonAccount> accounts = infozaJuridicalPersonService.findAccountListByINN(inn);
 
-            List<InfozaJuridicalPerson> infozaJuridicalPerson = infozaJuridicalPersonRepository.findByVcINN(inn);
+            List<InfozaJuridicalPerson> infozaJuridicalPerson = infozaJuridicalPersonService.findJuridicalPersonByINN(inn);
 
             if (infozaJuridicalPerson.isEmpty() && accounts.isEmpty() && orgs.isEmpty()) {
-                sendMessageWithKeyboard(chatId, "Информация не найдена");
+                sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
             }
 
             StringBuilder answer = new StringBuilder();
             for (InfozaJuridicalPerson person: infozaJuridicalPerson) {
-                InfozaIst ist = infozaIstRepository.findById(person.getInIST()).orElseThrow();
+                InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();;
 
-                String pattern = "dd.MM.yyyy";
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-                String date = simpleDateFormat.format(java.util.Date.from(person.getDtCRE()));
+                String date = getFormattedDate(person.getDtCRE());
 
                 answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
 
-                List<InfozaJuridicalPersonRequest> requests = infozaJuridicalPersonRequestRepository
-                        .findByIdZO(person.getId());
+                List<InfozaJuridicalPersonRequest> requests = infozaJuridicalPersonService.findRequestListByPersonId(person.getId());
                 for (InfozaJuridicalPersonRequest request: requests) {
-                    InfozaIst requestIst = infozaIstRepository.findById(request.getInIST()).orElseThrow();
-                    String requestDate = simpleDateFormat.format(java.util.Date.from(request.getDtCRE()));
+                    InfozaIst requestIst = infozaUserService.findIstById(request.getInIST()).orElseThrow();;
+                    String requestDate = getFormattedDate(request.getDtCRE());
                     if (!requestIst.equals(ist) && !requestDate.equals(date))
                         answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
                 }
@@ -381,7 +341,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             StringBuilder accountAnswer = new StringBuilder();
             for (InfozaJuridicalPersonAccount account: accounts) {
-                InfozaBank bank = infozaBankRepository.findTopByVcBIKOrderByDaIZM(account.getVcBIK());
+                InfozaBank bank = infozaBankService.findBankByBIK(account.getVcBIK());
                 if (bank!=null) {
                     String bankName = account.getVcBIK() + " " + bank.getVcNAZ();
                     if (bank.getDaDEL()!=null) {
@@ -415,42 +375,30 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void showFlsInfo(String query, long chatId) {
         String hash = md5Hash(query.trim().toUpperCase());
-        List<InfozaPhysicalPersonRem> physics = infozaPhysicalPersonRemRepository.findByVcHASH(hash);
+        List<InfozaPhysicalPersonRem> physics = infozaPhysicalPersonService.findRemarkListByHash(hash);
 
-        List<InfozaPhysicalPersonRequest> requests = infozaPhysicalPersonRequestRepository.findByVcHASH(hash);
+        List<InfozaPhysicalPersonRequest> requests = infozaPhysicalPersonService.findRequestListByHash(hash);
 
         if(physics.isEmpty() && requests.isEmpty()) {
-            sendMessageWithKeyboard(chatId, "Информация не найдена");
+            sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
         }
         for (InfozaPhysicalPersonRem person: physics) {
-            InfozaIst ist = infozaIstRepository.findById(person.getInIST()).orElseThrow();
+            InfozaIst ist = infozaUserService.findIstById(person.getInIST()).orElseThrow();;
             String info = person.getVcREM();
             Long inFls = person.getInFLS();
             if (inFls != 0) {
                 info += "\n" + resolvedInFls(inFls);
             }
-
-            String pattern = "dd.MM.yyyy";
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-            String date = simpleDateFormat.format(java.util.Date.from(person.getDtCRE()));
-
-
-            String answer = info +
-                    " \n(источник: <b>" +
-                    ist.getVcORG() +
-                    "</b> " +
-                    date +
-                    ")";
+            String date = getFormattedDate(person.getDtCRE());
+            String answer = getRemark(info, ist.getVcORG(), date);
             sendMessageWithKeyboard(chatId, answer);
         }
 
         StringBuilder answer = new StringBuilder();
         for (InfozaPhysicalPersonRequest request: requests) {
-            InfozaIst ist = infozaIstRepository.findById(request.getInIST()).orElseThrow();
+            InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();;
 
-            String pattern = "dd.MM.yyyy";
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
-            String date = simpleDateFormat.format(java.util.Date.from(request.getDtCRE()));
+            String date = getFormattedDate(request.getDtCRE());
 
             answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
         }
@@ -462,15 +410,15 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void showEmployeeInfo(String query, long chatId) {
         List<InfozaUser> users;
-        users = infozaUserRepository.findByVcLNAAndInTIPGreaterThan(query, 1);
+        users = infozaUserService.findEnabledUserListByFullName(query);
         if (users.isEmpty()) {
-            users = infozaUserRepository.findByVcORGContainingAndInTIPGreaterThanAndInLSTOrderByVcLNA(query, 1, 1);
+            users = infozaUserService.findEnabledUserListByOrganisation(query);
         }
         if (users.isEmpty()) {
-            sendMessageWithKeyboard(chatId, "Информация не найдена");
+            sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
         }
         for (InfozaUser user : users) {
-            InfozaIst info = infozaIstRepository.findInfozaIstByVcUSR(user.getVcUSR());
+            InfozaIst info = infozaUserService.findIstByUserName(user.getVcUSR());
 
             String phone = info.getVcSOT();
 
@@ -516,7 +464,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void registerUser(Message message, InfozaUser infoUser, Long idIST) {
-        if (botUserRepository.findById(message.getChatId()).isEmpty()) {
+        if (botService.findUserById(message.getChatId()).isEmpty()) {
             var chatId = message.getChatId();
             var chat = message.getChat();
 
@@ -530,15 +478,15 @@ public class TelegramBot extends TelegramLongPollingBot {
             botUser.setGrp(infoUser.getInGRP());
             botUser.setIst(idIST.intValue());
 
-            botUserRepository.save(botUser);
+            botService.saveUser(botUser);
 
-            log.info("user saved: " + botUser);
+            log.info("Пользователь сохранен: " + botUser);
         }
     }
 
     private void startCommandReceived(Long chatId, String name) {
         String answer = EmojiParser.parseToUnicode("Добро пожаловать, " + name + "! :blush: \nВыберите пункт меню");
-        log.info("Replied to user " + name);
+        log.info("Отправлен ответ пользователю " + name);
         sendMessage(chatId, answer);
     }
 
@@ -554,7 +502,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.setChatId(String.valueOf(chatId));
         message.setText(messageText);
         message.setParseMode("html");
-        message.setReplyMarkup(mainFuncKeyboardMarkup());
+        message.setReplyMarkup(mainFunctionsKeyboardMarkup());
         executeMessage(message);
     }
 
@@ -596,7 +544,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private boolean isUserRegistered(Long chatId) {
-        return botUserRepository.findById(chatId).isPresent();
+        return botService.findUserById(chatId).isPresent();
     }
 
     private void sendRequestContactMessage(long chatId) {
@@ -616,15 +564,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         // Add buttons to the first keyboard row
         keyboardFirstRow.add(button);
 
-        // Add all of the keyboard rows to the list
+        // Add all the keyboard rows to the list
         keyboard.add(keyboardFirstRow);
         // and assign this list to our keyboard
         replyKeyboardMarkup.setKeyboard(keyboard);
-        sendMessageWithKeyboard(chatId, "Вы не авторизованы. Пожалуйста, предоставьте боту доступ к Вашему номеру телефона. \n" +
-                "Важно: номер телефона должен быть указан у Вас в \"Настройках\" на сайте infoza.ru", replyKeyboardMarkup);
+        sendMessageWithKeyboard(chatId, ASK_PHONE, replyKeyboardMarkup);
     }
 
-    private ReplyKeyboardMarkup mainFuncKeyboardMarkup() {
+    private ReplyKeyboardMarkup mainFunctionsKeyboardMarkup() {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setSelective(true);
         keyboardMarkup.setResizeKeyboard(true);
@@ -633,13 +580,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<KeyboardRow> keyboardRows = new ArrayList<>();
 
         KeyboardRow row = new KeyboardRow();
-        row.add(EMPLOYEES);
+        row.add(EMPLOYEES_BUTTON);
         keyboardRows.add(row);
 
         row = new KeyboardRow();
-        row.add(FLS);
-        row.add(ULS);
-        row.add(PHONES);
+        row.add(FLS_BUTTON);
+        row.add(ULS_BUTTON);
+        row.add(PHONES_BUTTON);
 
         keyboardRows.add(row);
         keyboardMarkup.setKeyboard(keyboardRows);
