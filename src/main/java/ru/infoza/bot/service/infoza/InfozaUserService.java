@@ -30,7 +30,6 @@ public class InfozaUserService {
         return infozaIstRepository.findById(inIST);
     }
 
-
     public InfozaIst findIstByUserName(String user) {
         return infozaIstRepository.findInfozaIstByVcUSR(user);
     }

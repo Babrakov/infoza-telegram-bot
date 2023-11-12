@@ -11,6 +11,8 @@ public class BotConstants {
 
     public static final String ERROR_TEXT = "Произошла ошибка: ";
     public static final String INFO_NOT_FOUND = "Информация не найдена";
+    public static final String SEARCH_COMPLETE = "Поиск завершен";
+    public static final String SEARCH_START = "Идет поиск...";
 
     public static final String HELP_TEXT = "Бот предназначен для работы с ИНФОЗА.\n\n" +
             "Вы можете выполнить команду из основного меню слева или набрать команду вручную:\n\n" +
