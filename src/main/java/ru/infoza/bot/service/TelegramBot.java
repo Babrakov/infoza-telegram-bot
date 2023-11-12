@@ -117,7 +117,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 } else if (update.hasMessage() && update.getMessage().hasText()) {
                     String query = update.getMessage().getText();
                     Integer messageId;
-                    DeleteMessage deleteMessage;
 
                     switch (botState) {
                         case WAITING_FOR_NAME_OR_COMPANY:
