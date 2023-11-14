@@ -22,6 +22,9 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.infoza.bot.config.BotConfig;
 import ru.infoza.bot.config.state.BotState;
 import ru.infoza.bot.config.state.BotStateContext;
+import ru.infoza.bot.dto.GetcontactDTO;
+import ru.infoza.bot.dto.GrabContactDTO;
+import ru.infoza.bot.dto.NumbusterDTO;
 import ru.infoza.bot.model.bot.BotUser;
 import ru.infoza.bot.model.infoza.*;
 import ru.infoza.bot.service.bot.BotService;
@@ -31,6 +34,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -287,7 +291,46 @@ public class TelegramBot extends TelegramLongPollingBot {
         }, executorService);
     }
 
+    private CompletableFuture<Integer> fetchGrabContactInfoAsync(String formattedPhoneNumber, long chatId) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<GrabContactDTO> grabContactDTOList  = infozaPhoneService.getGrabcontactInfo(formattedPhoneNumber);
+            List<NumbusterDTO> numbusterDTOList  = infozaPhoneService.getNumbusterInfo(7+formattedPhoneNumber);
+            List<GetcontactDTO> getcontactDTOList  = infozaPhoneService.getGetcontactInfo(7+formattedPhoneNumber);
+            if (!grabContactDTOList .isEmpty() || !numbusterDTOList.isEmpty() || !getcontactDTOList.isEmpty()) {
+                StringBuilder messageBuilder = new StringBuilder("GetContact & NumBuster:\n");
+                for (GrabContactDTO contactDTO : grabContactDTOList) {
+                    messageBuilder
+                            .append(contactDTO.getFio());
+                    if (contactDTO.getBorn() != null && !contactDTO.getBorn().isEmpty()) {
+                        // Assuming born is in the format "yyyy-MM-dd"
+                        LocalDate birthDate = LocalDate.parse(contactDTO.getBorn());
+                        messageBuilder
+                                .append(" ")
+                                .append(birthDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+                    }
+                    messageBuilder.append("\n");
+                }
+                for (NumbusterDTO numbusterDTO : numbusterDTOList) {
+                    messageBuilder
+                            .append(numbusterDTO.getName())
+                            .append("\n");
+                }
+                for (GetcontactDTO getcontactDTO : getcontactDTOList) {
+                    messageBuilder
+                            .append(getcontactDTO.getName())
+                            .append("\n");
+                }
+                sendMessage(chatId, messageBuilder.toString());
+                return 1;
+            } else {
+                return 0;
+            }
+        }, executorService);
+    }
+
     private void showPhoneInfo(String query, long chatId, Integer messageToDelete) {
+        List<CompletableFuture<Integer>> futures = new ArrayList<>();
+
         String formattedPhoneNumber = formatPhoneNumberTenDigits(query);
         if (formattedPhoneNumber.length() != 10) {
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
@@ -296,44 +339,57 @@ public class TelegramBot extends TelegramLongPollingBot {
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
             return;
         }
+        CompletableFuture<Integer> infoFuture = fetchSaveRuDataInfoAsync(formattedPhoneNumber, chatId);
+        futures.add(infoFuture);
 
         List<InfozaPhoneRem> phones = infozaPhoneService.findRemarksByPhoneNumber(formattedPhoneNumber);
 
         InfozaPhone infozaPhone = infozaPhoneService.findPhoneByPhoneNumber(formattedPhoneNumber);
 
-        List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
         for (InfozaPhoneRem phone : phones) {
             CompletableFuture<Integer> istFuture = fetchIstInfoAsync(phone, chatId);
             futures.add(istFuture);
         }
 
-        CompletableFuture<Integer> infoFuture = fetchSaveRuDataInfoAsync(formattedPhoneNumber, chatId);
-        futures.add(infoFuture);
+        if (infozaPhone != null) {
+            CompletableFuture<Integer> requestFuture = fetchRequestInfoAsync(chatId, infozaPhone);
+            futures.add(requestFuture);
+        }
+
+        CompletableFuture<Integer> grabContactFuture = fetchGrabContactInfoAsync(formattedPhoneNumber, chatId);
+        futures.add(grabContactFuture);
 
         CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 
         allOf.thenRun(() -> {
             boolean anySucceed = futures.stream().anyMatch(future -> future.join() == 1);
 
-            if (infozaPhone != null) {
-                List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
-                StringBuilder answer = new StringBuilder();
-                for (InfozaPhoneRequest request : phoneRequests) {
-                    InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
-                    String date = getFormattedDate(request.getDtCRE());
-                    answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
-                }
-                if (answer.length() > 0) {
-                    sendMessageWithKeyboard(chatId, "Запросы:\n" + answer);
-                }
-            } else if (phones.isEmpty() && !anySucceed) {
+            if (phones.isEmpty() && !anySucceed) {
                 sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
             }
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
             executeMessage(deleteMessage);
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
         });
+    }
+
+    private CompletableFuture<Integer> fetchRequestInfoAsync(long chatId, InfozaPhone infozaPhone) {
+        return CompletableFuture.supplyAsync(() -> {
+
+            List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
+            StringBuilder answer = new StringBuilder();
+            for (InfozaPhoneRequest request : phoneRequests) {
+                InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
+                String date = getFormattedDate(request.getDtCRE());
+                answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
+            }
+            if (answer.length() > 0) {
+                sendMessage(chatId, "Запросы:\n" + answer);
+            }
+
+            return 1;
+        }, executorService);
     }
 
     private static String getRemark(String rem, String ist, String date) {
@@ -496,8 +552,11 @@ public class TelegramBot extends TelegramLongPollingBot {
                 formattedPhone = new StringBuilder("Телефон не указан");
             }
 
+            String city =  (user.getVcSITY()!=null) ? user.getVcSITY() + "\n" : "";
+
             String answer = info.getVcFIO() + "\n" +
                     info.getVcORG() + "\n" +
+                    city +
                     formattedPhone;
             sendMessageWithKeyboard(chatId, answer);
         }

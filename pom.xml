@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>ru.infoza</groupId>
-	<artifactId>simple-bot</artifactId>
+	<artifactId>infoza-telegram-bot</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>simple-bot</name>
-	<description>simple-bot</description>
+	<name>Telegram bot for Infoza</name>
+	<description>Бот для сайта infoza.ru</description>
 	<properties>
 		<java.version>11</java.version>
 		<telegram.version>5.6.0</telegram.version>
