@@ -22,7 +22,7 @@ public class BotConstants {
             "Введите /main чтобы показать основное меню\n\n" +
             "Введите /logout чтобы выйти";
 
-    public static final String ASK_PHONE = "Вы не авторизованы. Пожалуйста, предоставьте боту доступ к Вашему номеру телефона. \n" +
+    public static final String ASK_PHONE = "Вы не авторизованы. Пожалуйста, предоставьте боту доступ к Вашему номеру телефона - нажмите кнопку \"Разрешить\". \n" +
             "Важно: номер телефона должен быть указан у Вас в \"Настройках\" на сайте infoza.ru";
 
     // Private constructor to prevent instantiation
