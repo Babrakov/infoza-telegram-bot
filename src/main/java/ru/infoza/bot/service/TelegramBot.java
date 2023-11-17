@@ -25,6 +25,7 @@ import ru.infoza.bot.config.state.BotStateContext;
 import ru.infoza.bot.dto.GetcontactDTO;
 import ru.infoza.bot.dto.GrabContactDTO;
 import ru.infoza.bot.dto.NumbusterDTO;
+import ru.infoza.bot.model.infoza.InfozaPhoneRequestShort;
 import ru.infoza.bot.model.bot.BotUser;
 import ru.infoza.bot.model.infoza.*;
 import ru.infoza.bot.service.bot.BotService;
@@ -34,7 +35,9 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -371,19 +374,62 @@ public class TelegramBot extends TelegramLongPollingBot {
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
             executeMessage(deleteMessage);
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+            long currentUserIst = getCurrentUserIst(chatId);
+            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
         });
+
     }
+
+    private long getCurrentUserIst(Long chatId) {
+        BotUser user = botService.findUserById(chatId).orElseThrow();
+        return user.getIst();
+    }
+
+    private void savePhoneRequest(long ist, String formattedPhoneNumber, InfozaPhone infozaPhone) {
+        Instant date = Instant.now(); // Устанавливаем текущую дату и время
+
+        if (infozaPhone==null) {
+            // Создаем новый объект InfozaPhone
+            infozaPhone = new InfozaPhone();
+            infozaPhone.setVcPHO(formattedPhoneNumber);
+            infozaPhone.setInIST(ist);
+            infozaPhone.setDtCRE(date);
+            infozaPhoneService.saveInfozaPhone(infozaPhone);
+        }
+
+        InfozaPhoneRequest infozaPhoneRequest = infozaPhoneService
+                .getTodayRequestByIst(infozaPhone.getId(),ist);
+        if (infozaPhoneRequest == null) {
+            // Создаем новый объект InfozaPhoneRequest
+            infozaPhoneRequest = new InfozaPhoneRequest();
+            // Заполняем поля объекта InfozaPhoneRequest
+            infozaPhoneRequest.setIdZZ(0L); // связь с запросом в z_zap, в данном случае 0
+            infozaPhoneRequest.setIdZP(infozaPhone.getId());
+            infozaPhoneRequest.setInTIP(0L); // мобильный/стационарный - опять же не знаем
+            infozaPhoneRequest.setInIST(ist);
+            infozaPhoneRequest.setDtCRE(date);
+
+            infozaPhoneService.saveInfozaPhoneRequest(infozaPhoneRequest);
+        }
+    }
+
 
     private CompletableFuture<Integer> fetchRequestInfoAsync(long chatId, InfozaPhone infozaPhone) {
         return CompletableFuture.supplyAsync(() -> {
-
-            List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
             StringBuilder answer = new StringBuilder();
-            for (InfozaPhoneRequest request : phoneRequests) {
-                InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
-                String date = getFormattedDate(request.getDtCRE());
-                answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
+
+            List<InfozaPhoneRequestShort> infozaPhoneRequestShortList = infozaPhoneService.findRequestListByPhone(infozaPhone.getVcPHO());
+            for (InfozaPhoneRequestShort shortRequest : infozaPhoneRequestShortList) {
+                answer.append(getFormattedDate(shortRequest.getDtCRE())).append(" ").append(shortRequest.getVcORG()).append("\n");
             }
+
+//            List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
+//            for (InfozaPhoneRequest request : phoneRequests) {
+//                InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
+//                String date = getFormattedDate(request.getDtCRE());
+//                answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
+//            }
+
             if (answer.length() > 0) {
                 sendMessage(chatId, "Запросы:\n" + answer);
             }
@@ -405,6 +451,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         String pattern = "dd.MM.yyyy";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         return simpleDateFormat.format(java.util.Date.from(phone));
+    }
+
+    private static String getFormattedDate(LocalDate date) {
+        DateTimeFormatter formatter  = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        return formatter.format(date);
     }
 
     private void showUlsInfo(String query, long chatId, Integer messageToDelete) {
@@ -478,12 +529,31 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Счета:\n" + accountAnswer);
             }
 
+            long currentUserIst = getCurrentUserIst(chatId);
+            saveUlsRequest(currentUserIst,inn,infozaJuridicalPerson);
+
         } else {
             sendMessage(chatId, "Указан несуществующий ИНН");
         }
         DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
         executeMessage(deleteMessage);
         sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+    }
+
+    private void saveUlsRequest(long ist, String inn, List<InfozaJuridicalPerson> infozaJuridicalPersonList) {
+        Instant date = Instant.now(); // Устанавливаем текущую дату и время
+
+        // Если список пуст или нет элемента с dtCRE=сегодня, то добавляем новый объект
+        if (infozaJuridicalPersonList.isEmpty() || infozaJuridicalPersonList.stream()
+                .noneMatch(person -> person.getDtCRE().truncatedTo(ChronoUnit.DAYS).equals(date.truncatedTo(ChronoUnit.DAYS)))) {
+            InfozaJuridicalPerson infozaJuridicalPerson = new InfozaJuridicalPerson();
+            infozaJuridicalPerson.setVcINN(inn);
+            infozaJuridicalPerson.setInTIP(775); // 775 - иное
+            infozaJuridicalPerson.setInIST(ist);
+            infozaJuridicalPerson.setDtCRE(date);
+            infozaJuridicalPersonService.saveJuridicalPerson(infozaJuridicalPerson);
+        }
+
     }
 
     private void showFlsInfo(String query, long chatId, Integer messageToDelete) {
@@ -521,6 +591,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
         executeMessage(deleteMessage);
         sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+        long currentUserIst = getCurrentUserIst(chatId);
+        saveFlsRequest(currentUserIst,hash,requests);
+    }
+
+    private void saveFlsRequest(long ist, String hash, List<InfozaPhysicalPersonRequest> requests) {
+        if (requests.isEmpty() || infozaPhysicalPersonService.getTodayRequestByIst(hash, ist) == null) {
+            // Создаем новый объект InfozaPhysicalPersonRequest
+            InfozaPhysicalPersonRequest infozaPhysicalPersonRequest = new InfozaPhysicalPersonRequest();
+            infozaPhysicalPersonRequest.setVcHASH(hash);
+            infozaPhysicalPersonRequest.setInTIP(666); // 666 - иное
+            infozaPhysicalPersonRequest.setInIST(ist);
+            infozaPhysicalPersonRequest.setDtCRE(Instant.now());
+            infozaPhysicalPersonService.saveInfozaPhysicalPersonRequest(infozaPhysicalPersonRequest);
+        }
     }
 
     private void showEmployeeInfo(String query, long chatId) {
