@@ -14,21 +14,23 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.infoza.bot.dto.GetcontactDTO;
 import ru.infoza.bot.dto.GrabContactDTO;
+import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
 import ru.infoza.bot.dto.NumbusterDTO;
-import ru.infoza.bot.model.infoza.InfozaPhoneRequestShort;
 import ru.infoza.bot.model.infoza.InfozaPhone;
 import ru.infoza.bot.model.infoza.InfozaPhoneRem;
 import ru.infoza.bot.model.infoza.InfozaPhoneRequest;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRemRepository;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRepository;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRequestRepository;
-import ru.infoza.bot.repository.infoza.InfozaPhoneRequestShortRepository;
 
 import javax.transaction.Transactional;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.time.LocalDate;
@@ -49,13 +51,10 @@ public class InfozaPhoneService {
     private final InfozaPhoneRemRepository infozaPhoneRemRepository;
     private final InfozaPhoneRepository infozaPhoneRepository;
     private final InfozaPhoneRequestRepository infozaPhoneRequestRepository;
-    private final InfozaPhoneRequestShortRepository infozaPhoneRequestShortRepository;
-
-    public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository, InfozaPhoneRepository infozaPhoneRepository, InfozaPhoneRequestRepository infozaPhoneRequestRepository, InfozaPhoneRequestShortRepository infozaPhoneRequestShortRepository) {
+    public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository, InfozaPhoneRepository infozaPhoneRepository, InfozaPhoneRequestRepository infozaPhoneRequestRepository) {
         this.infozaPhoneRemRepository = infozaPhoneRemRepository;
         this.infozaPhoneRepository = infozaPhoneRepository;
         this.infozaPhoneRequestRepository = infozaPhoneRequestRepository;
-        this.infozaPhoneRequestShortRepository = infozaPhoneRequestShortRepository;
     }
 
     public List<InfozaPhoneRem> findRemarksByPhoneNumber(String phone) {
@@ -68,10 +67,6 @@ public class InfozaPhoneService {
 
     public List<InfozaPhoneRequest> findRequestsByPhoneId(Long id) {
         return infozaPhoneRequestRepository.findByIdZP(id);
-    }
-
-    public List<InfozaPhoneRequestShort> findRequestListByPhone(String phone){
-        return infozaPhoneRequestShortRepository.findRequestListByVcPHO(phone);
     }
 
     public String getPhoneInfo(String phoneNumber) {
@@ -336,4 +331,25 @@ public class InfozaPhoneService {
         Instant endOfDay = today.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
         return infozaPhoneRequestRepository.findByIdZPAndInISTAndDtCREBetween(id,ist,startOfDay,endOfDay);
     }
+
+    public List<InfozaPhoneRequestDTO> findRequestListByPhone(String phone){
+        List<Object[]> result = infozaPhoneRequestRepository.findRequestListByVcPHO(phone);
+        List<InfozaPhoneRequestDTO> infozaPhoneRequestList = new ArrayList<>();
+
+        for (Object[] row : result) {
+            BigInteger inISTBigInteger = (BigInteger) row[0];
+            Long inIST = inISTBigInteger.longValue(); // Convert BigInteger to Long
+
+            String vcFIO = (String) row[1];
+            String vcORG = (String) row[2];
+
+            Timestamp timestamp = (Timestamp) row[3];
+            Instant instant = timestamp.toInstant();
+            LocalDate dtCRE = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            InfozaPhoneRequestDTO dto = new InfozaPhoneRequestDTO(inIST,vcFIO,vcORG,dtCRE);
+            infozaPhoneRequestList.add(dto);
+        }
+        return infozaPhoneRequestList;
+    }
+
 }

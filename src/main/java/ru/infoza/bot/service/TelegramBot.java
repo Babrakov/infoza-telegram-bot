@@ -24,8 +24,8 @@ import ru.infoza.bot.config.state.BotState;
 import ru.infoza.bot.config.state.BotStateContext;
 import ru.infoza.bot.dto.GetcontactDTO;
 import ru.infoza.bot.dto.GrabContactDTO;
+import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
 import ru.infoza.bot.dto.NumbusterDTO;
-import ru.infoza.bot.model.infoza.InfozaPhoneRequestShort;
 import ru.infoza.bot.model.bot.BotUser;
 import ru.infoza.bot.model.infoza.*;
 import ru.infoza.bot.service.bot.BotService;
@@ -35,7 +35,6 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -418,17 +417,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         return CompletableFuture.supplyAsync(() -> {
             StringBuilder answer = new StringBuilder();
 
-            List<InfozaPhoneRequestShort> infozaPhoneRequestShortList = infozaPhoneService.findRequestListByPhone(infozaPhone.getVcPHO());
-            for (InfozaPhoneRequestShort shortRequest : infozaPhoneRequestShortList) {
+            List<InfozaPhoneRequestDTO> infozaPhoneRequestShortList = infozaPhoneService.findRequestListByPhone(infozaPhone.getVcPHO());
+            for (InfozaPhoneRequestDTO shortRequest : infozaPhoneRequestShortList) {
                 answer.append(getFormattedDate(shortRequest.getDtCRE())).append(" ").append(shortRequest.getVcORG()).append("\n");
             }
-
-//            List<InfozaPhoneRequest> phoneRequests = infozaPhoneService.findRequestsByPhoneId(infozaPhone.getId());
-//            for (InfozaPhoneRequest request : phoneRequests) {
-//                InfozaIst ist = infozaUserService.findIstById(request.getInIST()).orElseThrow();
-//                String date = getFormattedDate(request.getDtCRE());
-//                answer.append(date).append(" ").append(ist.getVcORG()).append("\n");
-//            }
 
             if (answer.length() > 0) {
                 sendMessage(chatId, "Запросы:\n" + answer);
