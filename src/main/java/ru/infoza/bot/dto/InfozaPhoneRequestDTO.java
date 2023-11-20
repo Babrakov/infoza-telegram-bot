@@ -2,9 +2,7 @@ package ru.infoza.bot.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.glassfish.grizzly.http.util.TimeStamp;
 
-import java.math.BigInteger;
 import java.time.LocalDate;
 
 @Getter

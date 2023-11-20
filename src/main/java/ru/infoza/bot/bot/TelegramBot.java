@@ -1,4 +1,4 @@
-package ru.infoza.bot.service;
+package ru.infoza.bot.bot;
 
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
@@ -295,7 +295,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private CompletableFuture<Integer> fetchGrabContactInfoAsync(String formattedPhoneNumber, long chatId) {
         return CompletableFuture.supplyAsync(() -> {
-            List<GrabContactDTO> grabContactDTOList  = infozaPhoneService.getGrabcontactInfo(formattedPhoneNumber);
+            List<GrabContactDTO> grabContactDTOList  = infozaPhoneService.getGrabContactInfo(formattedPhoneNumber);
             List<NumbusterDTO> numbusterDTOList  = infozaPhoneService.getNumbusterInfo(7+formattedPhoneNumber);
             List<GetcontactDTO> getcontactDTOList  = infozaPhoneService.getGetcontactInfo(7+formattedPhoneNumber);
             if (!grabContactDTOList .isEmpty() || !numbusterDTOList.isEmpty() || !getcontactDTOList.isEmpty()) {
