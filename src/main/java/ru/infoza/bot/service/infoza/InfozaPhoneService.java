@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.time.LocalDate;
+import java.util.function.Function;
 
 import static ru.infoza.bot.util.BotConstants.ERROR_TEXT;
 
@@ -42,8 +43,9 @@ import static ru.infoza.bot.util.BotConstants.ERROR_TEXT;
 @Service
 public class InfozaPhoneService {
 
+    public static final String SRD_URL = "http://phones.local/?pho=7";
     @Value("${api.key}")
-    String apiKey;
+    private String apiKey;
 
     @Value("${api.url}")
     private String apiUrl;
@@ -71,23 +73,12 @@ public class InfozaPhoneService {
 
     public String getPhoneInfo(String phoneNumber) {
         // Формируем URL с параметром телефона
-        String apiUrl = "http://phones.local/?pho=7" + phoneNumber;
+        String url = SRD_URL + phoneNumber;
 
-        // Создаем HttpClient
-        // Создаем настройки для тайм-аута
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(20000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
-//                .setConnectTimeout(10000) // Время ожидания установки соединения с сервером
-//                .setConnectionRequestTimeout(10000) // Время ожидания получения соединения из пула
-                .build();
-
-        // Создаем HttpClient с настройками тайм-аута
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
+        CloseableHttpClient httpClient = getHttpClient();
 
         // Создаем объект HttpGet с указанным URL
-        HttpGet httpGet = new HttpGet(apiUrl);
+        HttpGet httpGet = new HttpGet(url);
 
         try {
             // Выполняем запрос и получаем ответ
@@ -118,196 +109,41 @@ public class InfozaPhoneService {
         }
     }
 
-    public List<GrabContactDTO> getGrabcontactInfo(String phoneNumber) {
-        // Формируем URL с параметром телефона
-        String grabContactUrl = apiUrl + "/api/v1/phones/" + phoneNumber;
-
-        // Создаем HttpClient
-        // Создаем настройки для тайм-аута
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(10000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
-                .setConnectTimeout(10000) // Время ожидания установки соединения с сервером
-                .setConnectionRequestTimeout(10000) // Время ожидания получения соединения из пула
-                .build();
-
-        // Создаем HttpClient с настройками тайм-аута
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-
-        // Создаем объект HttpGet с указанным URL
-        HttpGet httpGet = new HttpGet(grabContactUrl);
-
-        // Добавляем заголовок с токеном аутентификации
-        httpGet.setHeader("Authorization", "Bearer "+apiKey);
-
-        try {
-            // Выполняем запрос и получаем ответ
-            HttpResponse response = httpClient.execute(httpGet);
-
-            // Проверяем статус код ответа
-            if (response.getStatusLine().getStatusCode() == 200) {
-                // Извлекаем содержимое ответа как строку
-                String responseBody = EntityUtils.toString(response.getEntity()).replaceAll("<br />", "");
-                return parseGrabContactDTOList(responseBody);
-            } else {
-                // В случае ошибки выводим сообщение
-                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
-                return Collections.emptyList();
-            }
-        } catch (IOException e) {
-            // В случае исключения (тайм-аута или других ошибок), возвращаем пустую строку
-            log.error("HTTP Request Failed with exception: " + e.getMessage());
-            return Collections.emptyList();
-        } finally {
-            // Закрываем ресурсы
-            httpGet.releaseConnection();
-            try {
-                httpClient.close();
-            } catch (IOException e) {
-                // Обработка исключения при закрытии HttpClient
-                log.error(ERROR_TEXT + e.getMessage());
-            }
-        }
+    public List<GrabContactDTO> getGrabContactInfo(String phoneNumber) {
+        return executeRequest("/api/v1/phones/" + phoneNumber, this::parseGrabContactDTOList);
     }
 
     public List<NumbusterDTO> getNumbusterInfo(String phoneNumber) {
-        // Формируем URL с параметром телефона
-        String numbusterUrl = apiUrl + "/api/v1/numbuster/" + phoneNumber;
-
-        // Создаем HttpClient
-        // Создаем настройки для тайм-аута
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(10000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
-                .setConnectTimeout(10000) // Время ожидания установки соединения с сервером
-                .setConnectionRequestTimeout(10000) // Время ожидания получения соединения из пула
-                .build();
-
-        // Создаем HttpClient с настройками тайм-аута
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-
-        // Создаем объект HttpGet с указанным URL
-        HttpGet httpGet = new HttpGet(numbusterUrl);
-
-        // Добавляем заголовок с токеном аутентификации
-        httpGet.setHeader("Authorization", "Bearer "+apiKey);
-
-        try {
-            // Выполняем запрос и получаем ответ
-            HttpResponse response = httpClient.execute(httpGet);
-
-            // Проверяем статус код ответа
-            if (response.getStatusLine().getStatusCode() == 200) {
-                // Извлекаем содержимое ответа как строку
-                String responseBody = EntityUtils.toString(response.getEntity());
-                return parseNumbusterDTOList(responseBody);
-            } else {
-                // В случае ошибки выводим сообщение
-                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
-                return Collections.emptyList();
-            }
-        } catch (IOException e) {
-            // В случае исключения (тайм-аута или других ошибок), возвращаем пустую строку
-            log.error("HTTP Request Failed with exception: " + e.getMessage());
-            return Collections.emptyList();
-        } finally {
-            // Закрываем ресурсы
-            httpGet.releaseConnection();
-            try {
-                httpClient.close();
-            } catch (IOException e) {
-                // Обработка исключения при закрытии HttpClient
-                log.error(ERROR_TEXT + e.getMessage());
-            }
-        }
+        return executeRequest("/api/v1/numbuster/" + phoneNumber, this::parseNumbusterDTOList);
     }
 
     public List<GetcontactDTO> getGetcontactInfo(String phoneNumber) {
-        // Формируем URL с параметром телефона
-        String getcontactUrl = apiUrl + "/api/v1/getcontact/" + phoneNumber;
+        return executeRequest("/api/v1/getcontact/" + phoneNumber, this::parseGetcontactDTOList);
+    }
 
-        // Создаем HttpClient
-        // Создаем настройки для тайм-аута
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(10000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
-                .setConnectTimeout(10000) // Время ожидания установки соединения с сервером
-                .setConnectionRequestTimeout(10000) // Время ожидания получения соединения из пула
-                .build();
-
-        // Создаем HttpClient с настройками тайм-аута
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-
-        // Создаем объект HttpGet с указанным URL
-        HttpGet httpGet = new HttpGet(getcontactUrl);
-
-        // Добавляем заголовок с токеном аутентификации
-        httpGet.setHeader("Authorization", "Bearer "+apiKey);
-
+    private <T> List<T> parseDTOList(String responseBody, TypeReference<List<T>> typeReference, String dtoName) {
+        ObjectMapper objectMapper = new ObjectMapper();
         try {
-            // Выполняем запрос и получаем ответ
-            HttpResponse response = httpClient.execute(httpGet);
-
-            // Проверяем статус код ответа
-            if (response.getStatusLine().getStatusCode() == 200) {
-                // Извлекаем содержимое ответа как строку
-                String responseBody = EntityUtils.toString(response.getEntity());
-                return parseGetcontactDTOList(responseBody);
-            } else {
-                // В случае ошибки выводим сообщение
-                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
-                return Collections.emptyList();
-            }
-        } catch (IOException e) {
-            // В случае исключения (тайм-аута или других ошибок), возвращаем пустую строку
-            log.error("HTTP Request Failed with exception: " + e.getMessage());
+            return objectMapper.readValue(responseBody, typeReference);
+        } catch (JsonProcessingException e) {
+            log.error("Error parsing " + dtoName + " list: " + e.getMessage());
             return Collections.emptyList();
-        } finally {
-            // Закрываем ресурсы
-            httpGet.releaseConnection();
-            try {
-                httpClient.close();
-            } catch (IOException e) {
-                // Обработка исключения при закрытии HttpClient
-                log.error(ERROR_TEXT + e.getMessage());
-            }
         }
     }
 
     private List<GrabContactDTO> parseGrabContactDTOList(String responseBody) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            TypeReference<List<GrabContactDTO>> typeReference = new TypeReference<>() {};
-            return objectMapper.readValue(responseBody, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("Error parsing GrabContactDTO list: " + e.getMessage());
-            return Collections.emptyList();
-        }
+        TypeReference<List<GrabContactDTO>> typeReference = new TypeReference<>() {};
+        return parseDTOList(responseBody, typeReference, "GrabContactDTO");
     }
 
     private List<NumbusterDTO> parseNumbusterDTOList(String responseBody) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            TypeReference<List<NumbusterDTO>> typeReference = new TypeReference<>() {};
-            return objectMapper.readValue(responseBody, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("Error parsing NumbusterDTO list: " + e.getMessage());
-            return Collections.emptyList();
-        }
+        TypeReference<List<NumbusterDTO>> typeReference = new TypeReference<>() {};
+        return parseDTOList(responseBody, typeReference, "NumbusterDTO");
     }
 
     private List<GetcontactDTO> parseGetcontactDTOList(String responseBody) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            TypeReference<List<GetcontactDTO>> typeReference = new TypeReference<>() {};
-            return objectMapper.readValue(responseBody, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("Error parsing NumbusterDTO list: " + e.getMessage());
-            return Collections.emptyList();
-        }
+        TypeReference<List<GetcontactDTO>> typeReference = new TypeReference<>() {};
+        return parseDTOList(responseBody, typeReference, "GetcontactDTO");
     }
 
     @Transactional
@@ -350,6 +186,52 @@ public class InfozaPhoneService {
             infozaPhoneRequestList.add(dto);
         }
         return infozaPhoneRequestList;
+    }
+
+    private static CloseableHttpClient getHttpClient() {
+        // Создаем HttpClient
+        // Создаем настройки для тайм-аута
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(5000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
+                .setConnectTimeout(5000) // Время ожидания установки соединения с сервером
+                .setConnectionRequestTimeout(5000) // Время ожидания получения соединения из пула
+                .build();
+
+        // Создаем HttpClient с настройками тайм-аута
+        return HttpClients.custom()
+                .setDefaultRequestConfig(requestConfig)
+                .build();
+    }
+
+
+    private <T> List<T> executeRequest(String endpoint, Function<String, List<T>> parser) {
+        String requestUrl = apiUrl + endpoint;
+
+        CloseableHttpClient httpClient = getHttpClient();
+        HttpGet httpGet = new HttpGet(requestUrl);
+        httpGet.setHeader("Authorization", "Bearer " + apiKey);
+
+        try {
+            HttpResponse response = httpClient.execute(httpGet);
+
+            if (response.getStatusLine().getStatusCode() == 200) {
+                String responseBody = EntityUtils.toString(response.getEntity());
+                return parser.apply(responseBody);
+            } else {
+                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
+                return Collections.emptyList();
+            }
+        } catch (IOException e) {
+            log.error("HTTP Request Failed with exception: " + e.getMessage());
+            return Collections.emptyList();
+        } finally {
+            httpGet.releaseConnection();
+            try {
+                httpClient.close();
+            } catch (IOException e) {
+                log.error(ERROR_TEXT + e.getMessage());
+            }
+        }
     }
 
 }
