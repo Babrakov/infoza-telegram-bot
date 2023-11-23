@@ -4,12 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.infoza.bot.dto.GetcontactDTO;
@@ -26,24 +20,27 @@ import ru.infoza.bot.repository.infoza.InfozaPhoneRequestRepository;
 import javax.transaction.Transactional;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.time.LocalDate;
 import java.util.function.Function;
-
-import static ru.infoza.bot.util.BotConstants.ERROR_TEXT;
-
 
 @Slf4j
 @Service
 public class InfozaPhoneService {
 
     public static final String SRD_URL = "http://phones.local/?pho=7";
+    public static final String REQUEST_FAILED_WITH_ERROR = "HTTP Request Failed with error code: ";
+    public static final String REQUEST_FAILED_WITH_EXCEPTION = "HTTP Request Failed with exception: ";
+    public static final String REQUEST_FAILED_WITH_TIMEOUT = "HTTP Request Failed with timeout: ";
+    public static final String EMPTY_STRING = "";
     @Value("${api.key}")
     private String apiKey;
 
@@ -53,6 +50,7 @@ public class InfozaPhoneService {
     private final InfozaPhoneRemRepository infozaPhoneRemRepository;
     private final InfozaPhoneRepository infozaPhoneRepository;
     private final InfozaPhoneRequestRepository infozaPhoneRequestRepository;
+
     public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository, InfozaPhoneRepository infozaPhoneRepository, InfozaPhoneRequestRepository infozaPhoneRequestRepository) {
         this.infozaPhoneRemRepository = infozaPhoneRemRepository;
         this.infozaPhoneRepository = infozaPhoneRepository;
@@ -75,37 +73,35 @@ public class InfozaPhoneService {
         // Формируем URL с параметром телефона
         String url = SRD_URL + phoneNumber;
 
-        CloseableHttpClient httpClient = getHttpClient();
+        // Создаем HttpClient с настройками тайм-аута
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)) // Время ожидания установки соединения с сервером
+                .build();
 
-        // Создаем объект HttpGet с указанным URL
-        HttpGet httpGet = new HttpGet(url);
+        // Создаем объект HttpRequest с указанным URL
+        HttpRequest httpRequest = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(20))  // Ответ может долго формироваться
+                .build();
 
         try {
             // Выполняем запрос и получаем ответ
-            HttpResponse response = httpClient.execute(httpGet);
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
             // Проверяем статус код ответа
-            if (response.getStatusLine().getStatusCode() == 200) {
+            if (response.statusCode() == 200) {
                 // Извлекаем содержимое ответа как строку
-                return EntityUtils.toString(response.getEntity());
+                return response.body();
             } else {
-                // В случае ошибки выводим сообщение
-                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
-                return "";
+                // В случае ошибки пишем в лог и возвращаем пустую строку
+                log.error(REQUEST_FAILED_WITH_ERROR + response.statusCode());
+                return EMPTY_STRING;
             }
-        } catch (IOException e) {
-            // В случае исключения (тайм-аута или других ошибок), возвращаем пустую строку
-            log.error("HTTP Request Failed with exception: " + e.getMessage());
-            return "";
-        } finally {
-            // Закрываем ресурсы
-            httpGet.releaseConnection();
-            try {
-                httpClient.close();
-            } catch (IOException e) {
-                // Обработка исключения при закрытии HttpClient
-                log.error(ERROR_TEXT + e.getMessage());
-            }
+        } catch (HttpTimeoutException e) {
+            // В случае тайм-аута, возвращаем пустую строку
+            log.error(REQUEST_FAILED_WITH_TIMEOUT + e.getMessage());
+            return EMPTY_STRING;
+        } catch (Exception e) {
+            // В случае других исключений, возвращаем пустую строку
+            log.error(REQUEST_FAILED_WITH_EXCEPTION + e.getMessage());
+            return EMPTY_STRING;
         }
     }
 
@@ -132,17 +128,20 @@ public class InfozaPhoneService {
     }
 
     private List<GrabContactDTO> parseGrabContactDTOList(String responseBody) {
-        TypeReference<List<GrabContactDTO>> typeReference = new TypeReference<>() {};
+        TypeReference<List<GrabContactDTO>> typeReference = new TypeReference<>() {
+        };
         return parseDTOList(responseBody, typeReference, "GrabContactDTO");
     }
 
     private List<NumbusterDTO> parseNumbusterDTOList(String responseBody) {
-        TypeReference<List<NumbusterDTO>> typeReference = new TypeReference<>() {};
+        TypeReference<List<NumbusterDTO>> typeReference = new TypeReference<>() {
+        };
         return parseDTOList(responseBody, typeReference, "NumbusterDTO");
     }
 
     private List<GetcontactDTO> parseGetcontactDTOList(String responseBody) {
-        TypeReference<List<GetcontactDTO>> typeReference = new TypeReference<>() {};
+        TypeReference<List<GetcontactDTO>> typeReference = new TypeReference<>() {
+        };
         return parseDTOList(responseBody, typeReference, "GetcontactDTO");
     }
 
@@ -165,10 +164,10 @@ public class InfozaPhoneService {
         Instant startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant();
         // Преобразование в конец дня (23:59:59)
         Instant endOfDay = today.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
-        return infozaPhoneRequestRepository.findByIdZPAndInISTAndDtCREBetween(id,ist,startOfDay,endOfDay);
+        return infozaPhoneRequestRepository.findByIdZPAndInISTAndDtCREBetween(id, ist, startOfDay, endOfDay);
     }
 
-    public List<InfozaPhoneRequestDTO> findRequestListByPhone(String phone){
+    public List<InfozaPhoneRequestDTO> findRequestListByPhone(String phone) {
         List<Object[]> result = infozaPhoneRequestRepository.findRequestListByVcPHO(phone);
         List<InfozaPhoneRequestDTO> infozaPhoneRequestList = new ArrayList<>();
 
@@ -182,55 +181,33 @@ public class InfozaPhoneService {
             Timestamp timestamp = (Timestamp) row[3];
             Instant instant = timestamp.toInstant();
             LocalDate dtCRE = instant.atZone(ZoneId.systemDefault()).toLocalDate();
-            InfozaPhoneRequestDTO dto = new InfozaPhoneRequestDTO(inIST,vcFIO,vcORG,dtCRE);
+            InfozaPhoneRequestDTO dto = new InfozaPhoneRequestDTO(inIST, vcFIO, vcORG, dtCRE);
             infozaPhoneRequestList.add(dto);
         }
         return infozaPhoneRequestList;
     }
 
-    private static CloseableHttpClient getHttpClient() {
-        // Создаем HttpClient
-        // Создаем настройки для тайм-аута
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(5000) // Время ожидания данных от сервера (максимальное время выполнения запроса)
-                .setConnectTimeout(5000) // Время ожидания установки соединения с сервером
-                .setConnectionRequestTimeout(5000) // Время ожидания получения соединения из пула
-                .build();
-
-        // Создаем HttpClient с настройками тайм-аута
-        return HttpClients.custom()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-    }
-
-
     private <T> List<T> executeRequest(String endpoint, Function<String, List<T>> parser) {
         String requestUrl = apiUrl + endpoint;
 
-        CloseableHttpClient httpClient = getHttpClient();
-        HttpGet httpGet = new HttpGet(requestUrl);
-        httpGet.setHeader("Authorization", "Bearer " + apiKey);
+        // Create an HttpClient with timeout settings
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+
+        HttpRequest httpRequest = HttpRequest.newBuilder().uri(URI.create(requestUrl)).header("Authorization", "Bearer " + apiKey).build();
 
         try {
-            HttpResponse response = httpClient.execute(httpGet);
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
-            if (response.getStatusLine().getStatusCode() == 200) {
-                String responseBody = EntityUtils.toString(response.getEntity());
+            if (response.statusCode() == 200) {
+                String responseBody = response.body();
                 return parser.apply(responseBody);
             } else {
-                log.error("HTTP Request Failed with error code " + response.getStatusLine().getStatusCode());
+                log.error(REQUEST_FAILED_WITH_ERROR + response.statusCode());
                 return Collections.emptyList();
             }
-        } catch (IOException e) {
-            log.error("HTTP Request Failed with exception: " + e.getMessage());
+        } catch (IOException | InterruptedException e) {
+            log.error(REQUEST_FAILED_WITH_EXCEPTION + e.getMessage());
             return Collections.emptyList();
-        } finally {
-            httpGet.releaseConnection();
-            try {
-                httpClient.close();
-            } catch (IOException e) {
-                log.error(ERROR_TEXT + e.getMessage());
-            }
         }
     }
 
