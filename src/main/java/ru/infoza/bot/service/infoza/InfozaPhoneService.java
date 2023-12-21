@@ -258,8 +258,6 @@ public class InfozaPhoneService {
                 } else {
                     log.error("Не удалось найти имя таблицы источника.");
                 }
-            } else {
-                log.error("Не удалось найти номер телефона в таблице phones.");
             }
 
         } catch (SQLException e) {
