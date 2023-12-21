@@ -285,7 +285,19 @@ public class TelegramBot extends TelegramLongPollingBot {
         return CompletableFuture.supplyAsync(() -> {
             String saveRuDataInfo = infozaPhoneService.getPhoneInfo(formattedPhoneNumber);
             if (!saveRuDataInfo.isEmpty()) {
-                sendMessage(chatId, "SaveRuData:\n" + saveRuDataInfo);
+                sendMessage(chatId, "<strong>SaveRuData</strong>\n" + saveRuDataInfo);
+                return 1;
+            } else {
+                return 0;
+            }
+        }, executorService);
+    }
+
+    private CompletableFuture<Integer> fetchCloudInfoAsync(String formattedPhoneNumber, long chatId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String cloudInfo = infozaPhoneService.getCloudPhoneInfo("7" + formattedPhoneNumber);
+            if (!cloudInfo.isEmpty()) {
+                sendMessage(chatId, "<strong>CloudDB</strong>\n" + cloudInfo);
                 return 1;
             } else {
                 return 0;
@@ -299,7 +311,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             List<NumbusterDTO> numbusterDTOList  = infozaPhoneService.getNumbusterInfo(7+formattedPhoneNumber);
             List<GetcontactDTO> getcontactDTOList  = infozaPhoneService.getGetcontactInfo(7+formattedPhoneNumber);
             if (!grabContactDTOList .isEmpty() || !numbusterDTOList.isEmpty() || !getcontactDTOList.isEmpty()) {
-                StringBuilder messageBuilder = new StringBuilder("GetContact & NumBuster:\n");
+                StringBuilder messageBuilder = new StringBuilder("<strong>GetContact & NumBuster</strong>\n");
                 for (GrabContactDTO contactDTO : grabContactDTOList) {
                     messageBuilder
                             .append(contactDTO.getFio());
@@ -343,6 +355,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
         CompletableFuture<Integer> infoFuture = fetchSaveRuDataInfoAsync(formattedPhoneNumber, chatId);
         futures.add(infoFuture);
+
+        CompletableFuture<Integer> cloudFuture = fetchCloudInfoAsync(formattedPhoneNumber, chatId);
+        futures.add(cloudFuture);
 
         List<InfozaPhoneRem> phones = infozaPhoneService.findRemarksByPhoneNumber(formattedPhoneNumber);
 
@@ -423,7 +438,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
 
             if (answer.length() > 0) {
-                sendMessage(chatId, "Запросы:\n" + answer);
+                sendMessage(chatId, "<strong>Запросы</strong>\n" + answer);
             }
 
             return 1;
