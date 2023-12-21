@@ -343,6 +343,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void showPhoneInfo(String query, long chatId, Integer messageToDelete) {
+        log.info("Запрос от " + chatId + ": " + query);
         List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
         String formattedPhoneNumber = formatPhoneNumberTenDigits(query);

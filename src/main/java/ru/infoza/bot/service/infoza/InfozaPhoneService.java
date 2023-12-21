@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import ru.infoza.bot.config.PostgresConfig;
 import ru.infoza.bot.dto.GetcontactDTO;
 import ru.infoza.bot.dto.GrabContactDTO;
 import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
@@ -34,6 +34,8 @@ import java.time.*;
 import java.util.*;
 import java.util.function.Function;
 
+import javax.sql.DataSource;
+
 @Slf4j
 @Service
 public class InfozaPhoneService {
@@ -42,6 +44,7 @@ public class InfozaPhoneService {
     public static final String REQUEST_FAILED_WITH_ERROR = "HTTP Request Failed with error code: ";
     public static final String REQUEST_FAILED_WITH_EXCEPTION = "HTTP Request Failed with exception: ";
     public static final String REQUEST_FAILED_WITH_TIMEOUT = "HTTP Request Failed with timeout: ";
+    public static final String SQL_FAILED_WITH_EXCEPTION = "SQL Request Failed with exception: ";
     public static final String EMPTY_STRING = "";
     @Value("${api.key}")
     private String apiKey;
@@ -52,13 +55,17 @@ public class InfozaPhoneService {
     private final InfozaPhoneRemRepository infozaPhoneRemRepository;
     private final InfozaPhoneRepository infozaPhoneRepository;
     private final InfozaPhoneRequestRepository infozaPhoneRequestRepository;
-    private final PostgresConfig postgresConfig;
+    //private final PostgresConfig postgresConfig;
+    private final DataSource postgresDataSource;
 
-    public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository, InfozaPhoneRepository infozaPhoneRepository, InfozaPhoneRequestRepository infozaPhoneRequestRepository, PostgresConfig postgresConfig) {
+    public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository,
+                              InfozaPhoneRepository infozaPhoneRepository,
+                              InfozaPhoneRequestRepository infozaPhoneRequestRepository,
+                              @Qualifier("postgresDataSource") DataSource postgresDataSource) {
         this.infozaPhoneRemRepository = infozaPhoneRemRepository;
         this.infozaPhoneRepository = infozaPhoneRepository;
         this.infozaPhoneRequestRepository = infozaPhoneRequestRepository;
-        this.postgresConfig = postgresConfig;
+        this.postgresDataSource = postgresDataSource;
     }
 
     public List<InfozaPhoneRem> findRemarksByPhoneNumber(String phone) {
@@ -94,8 +101,11 @@ public class InfozaPhoneService {
                 // Извлекаем содержимое ответа как строку
                 return response.body();
             } else {
-                // В случае ошибки пишем в лог и возвращаем пустую строку
-                log.error(REQUEST_FAILED_WITH_ERROR + response.statusCode());
+                // В случае ошибки (кроме 404) пишем в лог
+                int statusCode = response.statusCode();
+                if (statusCode != 404)
+                    log.error(REQUEST_FAILED_WITH_ERROR + statusCode);
+                // возвращаем пустую строку
                 return EMPTY_STRING;
             }
         } catch (HttpTimeoutException e) {
@@ -203,25 +213,28 @@ public class InfozaPhoneService {
                 String responseBody = response.body();
                 return parser.apply(responseBody);
             } else {
-                log.error(REQUEST_FAILED_WITH_ERROR + response.statusCode());
+                int statusCode = response.statusCode();
+                // В случае ошибки (кроме 404) пишем в лог
+                if (statusCode != 404)
+                    log.error(REQUEST_FAILED_WITH_ERROR + statusCode);
+                // возвращаем пустую строку
                 return Collections.emptyList();
+
             }
         } catch (IOException | InterruptedException e) {
-            log.error(REQUEST_FAILED_WITH_EXCEPTION + e.getMessage());
+            String errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = String.valueOf(e);
+            }
+            log.error(REQUEST_FAILED_WITH_EXCEPTION + errorMessage);
             return Collections.emptyList();
         }
     }
 
 
     public String getCloudPhoneInfo(String phone) {
-
-        String jdbcUrl = postgresConfig.getPostgresUrl();
-        String user = postgresConfig.getPostgresUser();
-        String password = postgresConfig.getPostgresPassword();
-
         StringBuilder result = new StringBuilder();
-
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
+        try (Connection connection = postgresDataSource.getConnection()) {
             // Шаг 1: Найти запись в phones
             long phoneId = findCloudPhoneId(connection, phone);
 
@@ -242,19 +255,15 @@ public class InfozaPhoneService {
                                 .append(processCloudResult(jsonResult))
                                 .append("\n");
                     }
-
-
+                } else {
+                    log.error("Не удалось найти имя таблицы источника.");
                 }
-//                else {
-//                    result = new StringBuilder("Не удалось найти имя таблицы источника.");
-//                }
+            } else {
+                log.error("Не удалось найти номер телефона в таблице phones.");
             }
-//            else {
-//                result = new StringBuilder("Не удалось найти номер телефона в таблице phones.");
-//            }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error(SQL_FAILED_WITH_EXCEPTION + e.getMessage());
         }
         return result.toString();
     }
