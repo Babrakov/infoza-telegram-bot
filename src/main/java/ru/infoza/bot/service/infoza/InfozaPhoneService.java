@@ -30,8 +30,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.time.*;
 import java.util.*;
+import java.util.Date;
 import java.util.function.Function;
 
 import javax.sql.DataSource;
@@ -355,6 +357,9 @@ public class InfozaPhoneService {
                 JsonObject result = new JsonObject();
                 ResultSetMetaData metaData = resultSet.getMetaData();
                 int columnCount = metaData.getColumnCount();
+                // Форматтер для преобразования дат
+                SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+
                 while (resultSet.next()) {
                     for (int i = 1; i <= columnCount; i++) {
                         String columnName = metaData.getColumnName(i);
@@ -362,7 +367,17 @@ public class InfozaPhoneService {
                         if (!columnName.equalsIgnoreCase("id") && details.get(columnName)!=null) {
                             Object value = resultSet.getObject(i);
                             // Проверка на null перед вызовом toString()
-                            result.addProperty(details.get(columnName), (value != null) ? value.toString() : null);
+                            if (value != null) {
+                                // Если это дата, форматируем ее
+                                if (value instanceof java.sql.Date) {
+                                    Date dateValue = new Date(((java.sql.Date) value).getTime());
+                                    result.addProperty(details.get(columnName), dateFormat.format(dateValue));
+                                } else {
+                                    result.addProperty(details.get(columnName), value.toString());
+                                }
+                            } else {
+                                result.addProperty(details.get(columnName), (String) null);
+                            }
                         }
                     }
                 }
