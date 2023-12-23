@@ -16,13 +16,13 @@ import javax.sql.DataSource;
 @PropertySource("classpath:application.properties")
 public class PostgresConfig {
 
-    @Value("${infoza.postgres.url}")
+    @Value("${spring.datasource.cldb.url}")
     String postgresUrl;
 
-    @Value("${infoza.postgres.username}")
+    @Value("${spring.datasource.cldb.username}")
     String postgresUser;
 
-    @Value("${infoza.postgres.password}")
+    @Value("${spring.datasource.cldb.password}")
     String postgresPassword;
 
     @Bean

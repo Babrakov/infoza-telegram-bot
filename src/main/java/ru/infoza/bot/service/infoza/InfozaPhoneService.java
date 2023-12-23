@@ -13,13 +13,14 @@ import ru.infoza.bot.dto.GetcontactDTO;
 import ru.infoza.bot.dto.GrabContactDTO;
 import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
 import ru.infoza.bot.dto.NumbusterDTO;
+import ru.infoza.bot.model.cldb.Source;
 import ru.infoza.bot.model.infoza.InfozaPhone;
 import ru.infoza.bot.model.infoza.InfozaPhoneRem;
 import ru.infoza.bot.model.infoza.InfozaPhoneRequest;
+import ru.infoza.bot.repository.cldb.SourcesRepository;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRemRepository;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRepository;
 import ru.infoza.bot.repository.infoza.InfozaPhoneRequestRepository;
-import ru.infoza.bot.util.Pair;
 
 import javax.transaction.Transactional;
 import java.io.IOException;
@@ -57,16 +58,20 @@ public class InfozaPhoneService {
     private final InfozaPhoneRemRepository infozaPhoneRemRepository;
     private final InfozaPhoneRepository infozaPhoneRepository;
     private final InfozaPhoneRequestRepository infozaPhoneRequestRepository;
-    //private final PostgresConfig postgresConfig;
+    private final SourcesRepository sourcesRepository;
+//    private final SourcesService cldbSourcesService;
     private final DataSource postgresDataSource;
 
     public InfozaPhoneService(InfozaPhoneRemRepository infozaPhoneRemRepository,
                               InfozaPhoneRepository infozaPhoneRepository,
-                              InfozaPhoneRequestRepository infozaPhoneRequestRepository,
+                              InfozaPhoneRequestRepository infozaPhoneRequestRepository, SourcesRepository sourcesRepository,
+//                              SourcesService cldbSourcesService,
                               @Qualifier("postgresDataSource") DataSource postgresDataSource) {
         this.infozaPhoneRemRepository = infozaPhoneRemRepository;
         this.infozaPhoneRepository = infozaPhoneRepository;
         this.infozaPhoneRequestRepository = infozaPhoneRequestRepository;
+        this.sourcesRepository = sourcesRepository;
+//        this.cldbSourcesService = cldbSourcesService;
         this.postgresDataSource = postgresDataSource;
     }
 
@@ -242,17 +247,20 @@ public class InfozaPhoneService {
 
             if (phoneId != -1) {
                 // Шаг 2: Найти записи в phones_sources
-                Map<Long, Pair<String,String>> sourceInfo = findSourceInfo(connection, phoneId);
+                Map<Long, Source> sourceInfo = findSourceInfo(connection, phoneId);
 
                 if (sourceInfo != null) {
-                    for (Map.Entry<Long, Pair<String,String>> entry : sourceInfo.entrySet()) {
+                    for (Map.Entry<Long, Source> entry : sourceInfo.entrySet()) {
                         long recordId = entry.getKey();
-                        Pair<String,String> tableInfo = entry.getValue();
-                        String tableName = tableInfo.getLeft();
-                        String sourceName = tableInfo.getRight();
+                        Source tableInfo = entry.getValue();
+                        String tableName = tableInfo.getTableName();
+                        String sourceUrl = tableInfo.getUrl();
+                        String sourceName = tableInfo.getName();
                         // Шаг 3: Сделать запрос к таблице sourceTableName
                         JsonObject jsonResult = executeQuery(connection, tableName, recordId);
-                        result.append("<u>").append(sourceName).append("</u>")
+//                        result.append("<u>").append(sourceName).append("</u>")
+                        result.append("<a href='").append(sourceUrl).append("'>")
+                                .append(sourceName).append("</a>")
                                 .append(": ")
                                 .append(processCloudResult(jsonResult))
                                 .append("\n");
@@ -307,35 +315,23 @@ public class InfozaPhoneService {
         return sql;
     }
 
-    private Map<Long, Pair<String,String>> findSourceInfo(Connection connection, long phoneId) throws SQLException {
-        Map<Long, Pair<String,String>> result = new HashMap<>();
+    private Map<Long, Source> findSourceInfo(Connection connection, long phoneId) throws SQLException {
+        Map<Long, Source> result = new HashMap<>();
         String sql = "SELECT source_id, record_id FROM public.phones_sources WHERE phone_id = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, phoneId);
             try (ResultSet resultSet = statement.executeQuery()) {
 
                 while (resultSet.next()) {
-                    Pair<String,String> sourceTableInfo = getSourceTableInfo(connection, resultSet.getLong("source_id"));
+//                    SourcesDto sourcesDto =
+                    Source source = sourcesRepository.findById(resultSet.getInt("source_id")).orElse(null);
+//                    Sources sources = cldbSourcesService.findSourceById(resultSet.getInt("source_id"));
                     long recordId = resultSet.getLong("record_id");
-                    result.put(recordId, sourceTableInfo);
+                    result.put(recordId, source);
                 }
                 return result;
             }
         }
-    }
-
-    private Pair<String,String> getSourceTableInfo(Connection connection, long sourceId) throws SQLException {
-        String sql = "SELECT table_name, name FROM public.sources WHERE id = ?";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setLong(1, sourceId);
-            //System.out.println(getSqlWithValues(sql, sourceId));
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return Pair.of(resultSet.getString("table_name"),resultSet.getString("name"));
-                }
-            }
-        }
-        return null;
     }
 
     private JsonObject executeQuery(Connection connection, String tableName, long recordId) throws SQLException {
