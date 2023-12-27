@@ -42,6 +42,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -772,7 +773,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void registerUser(Message message, InfozaUser infoUser, Long idIST) {
-        if (botService.findUserById(message.getChatId()).isEmpty()) {
+        Optional<BotUser> userById = botService.findUserById(message.getChatId());
+        if (userById.isEmpty()) {
             var chatId = message.getChatId();
             var chat = message.getChat();
 
@@ -785,10 +787,17 @@ public class TelegramBot extends TelegramLongPollingBot {
             botUser.setTip(infoUser.getInTIP());
             botUser.setGrp(infoUser.getInGRP());
             botUser.setIst(idIST.intValue());
+            botUser.setRemainPhoneReqs(20);
+            botUser.setRemainEmailReqs(20);
 
             botService.saveUser(botUser);
 
             log.info("Пользователь сохранен: " + botUser);
+        } else {
+            BotUser botUser = userById.get();
+            botUser.setDeletedAt(null);
+            botService.saveUser(botUser);
+            log.info("Пользователь обновлен: " + botUser);
         }
     }
 
@@ -895,7 +904,9 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private boolean isUserRegistered(Long chatId) {
-        return botService.findUserById(chatId).isPresent();
+//        return botService.findUserById(chatId).isPresent();
+        Optional<BotUser> optionalUser = botService.findUserById(chatId);
+        return optionalUser.isPresent() && optionalUser.get().getDeletedAt() == null;
     }
 
     private void sendRequestContactMessage(long chatId) {

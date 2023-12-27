@@ -38,4 +38,7 @@ public class BotUser {
 
     @Column(name = "registered_at")
     private Timestamp registeredAt;
+
+    @Column(name = "deleted_at")
+    private Timestamp deletedAt;
 }
