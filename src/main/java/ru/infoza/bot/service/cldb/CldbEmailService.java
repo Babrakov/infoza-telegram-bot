@@ -19,11 +19,7 @@ import java.util.Map;
 @Service
 public class CldbEmailService {
 
-    public static final String REQUEST_FAILED_WITH_ERROR = "HTTP Request Failed with error code: ";
-    public static final String REQUEST_FAILED_WITH_EXCEPTION = "HTTP Request Failed with exception: ";
-    public static final String REQUEST_FAILED_WITH_TIMEOUT = "HTTP Request Failed with timeout: ";
     public static final String SQL_FAILED_WITH_EXCEPTION = "SQL Request Failed with exception: ";
-    public static final String EMPTY_STRING = "";
 
     private final DataSource postgresDataSource;
     private final SourcesRepository sourcesRepository;
@@ -54,7 +50,6 @@ public class CldbEmailService {
                         String sourceName = tableInfo.getName();
                         // Шаг 3: Сделать запрос к таблице sourceTableName
                         JsonObject jsonResult = executeQuery(connection, tableName, recordId);
-//                        result.append("<u>").append(sourceName).append("</u>")
                         result.append("<a href='").append(sourceUrl).append("'>")
                                 .append(sourceName).append("</a>")
                                 .append(": ")
