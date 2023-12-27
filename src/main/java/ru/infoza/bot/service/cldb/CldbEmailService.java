@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.infoza.bot.model.cldb.Source;
 import ru.infoza.bot.repository.cldb.SourcesRepository;
@@ -148,7 +147,7 @@ public class CldbEmailService {
                     for (int i = 1; i <= columnCount; i++) {
                         String columnName = metaData.getColumnName(i);
                         // Исключаем столбец "id"
-                        if (!columnName.equalsIgnoreCase("id") && details.get(columnName)!=null) {
+                        if (!columnName.equalsIgnoreCase("id") && details.get(columnName) != null) {
                             Object value = resultSet.getObject(i);
                             // Проверка на null перед вызовом toString()
                             if (value != null) {
