@@ -30,6 +30,12 @@ public class BotUser {
     private int grp;
     private int ist;
 
+    @Column(name = "remain_phone_reqs")
+    private int remainPhoneReqs;
+
+    @Column(name = "remain_email_reqs")
+    private int remainEmailReqs;
+
     @Column(name = "registered_at")
     private Timestamp registeredAt;
 }

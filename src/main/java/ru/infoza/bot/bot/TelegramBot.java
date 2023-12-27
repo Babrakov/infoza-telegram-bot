@@ -28,8 +28,11 @@ import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
 import ru.infoza.bot.dto.NumbusterDTO;
 import ru.infoza.bot.model.bot.BotUser;
 import ru.infoza.bot.model.infoza.*;
+import ru.infoza.bot.repository.bot.BotUserRepository;
 import ru.infoza.bot.service.bot.BotService;
+import ru.infoza.bot.service.cldb.CldbEmailService;
 import ru.infoza.bot.service.infoza.*;
+import ru.infoza.bot.util.EmailUtils;
 
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
@@ -53,12 +56,14 @@ import static ru.infoza.bot.util.PhysicalPersonUtils.resolvedInFls;
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+    private final BotUserRepository botUserRepository;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(5);
     private final BotConfig config;
     private final BotStateContext botStateContext;
     private final BotService botService;
     private final InfozaPhoneService infozaPhoneService;
+    private final CldbEmailService cldbEmailService;
     private final InfozaUserService infozaUserService;
     private final InfozaPhysicalPersonService infozaPhysicalPersonService;
     private final InfozaJuridicalPersonService infozaJuridicalPersonService;
@@ -66,13 +71,15 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
     public TelegramBot(BotConfig config, BotService botService, BotStateContext botStateContext,
-                       InfozaPhoneService infozaPhoneService, InfozaUserService infozaUserService,
+                       InfozaPhoneService infozaPhoneService, CldbEmailService cldbEmailService, InfozaUserService infozaUserService,
                        InfozaPhysicalPersonService infozaPhysicalPersonService,
                        InfozaJuridicalPersonService infozaJuridicalPersonService,
-                       InfozaBankService infozaBankService) {
+                       InfozaBankService infozaBankService,
+                       BotUserRepository botUserRepository) {
         this.config = config;
         this.infozaPhoneService = infozaPhoneService;
         this.botService = botService;
+        this.cldbEmailService = cldbEmailService;
         this.infozaUserService = infozaUserService;
         this.infozaPhysicalPersonService = infozaPhysicalPersonService;
         this.infozaJuridicalPersonService = infozaJuridicalPersonService;
@@ -90,6 +97,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Ошибка в настройке списка команд ботов: " + e.getMessage());
         }
+        this.botUserRepository = botUserRepository;
     }
 
     @Override
@@ -139,6 +147,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                         case WAITING_FOR_PHONE:
                             messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
                             showPhoneInfo(query, chatId, messageId);
+                            break;
+                        case WAITING_FOR_EMAIL:
+                            messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
+                            showEmailInfo(query, chatId, messageId);
                             break;
                     }
                     // После завершения обработки сообщения сбрасываем состояние обратно в START
@@ -197,6 +209,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                     case PHONES_BUTTON:
                         proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_PHONE, "№ телефона");
                         break;
+                    case EMAILS_BUTTON:
+                        proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_EMAIL, "email");
+                        break;
                     default:
                         sendMessage(chatId, "Извините, данная команда не поддерживается");
 
@@ -252,18 +267,41 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void proceedExtendedAction(long chatId, InlineKeyboardMarkup inlineKeyboardMarkup,
                                        BotState botState, String queryName) {
-        if (checkIfExtendedAccessPermitted(chatId)) {
+        if (checkIfExtendedAccessPermitted(chatId,botState, queryName)) {
             botStateContext.setUserState(chatId, botState);
             sendMessageWithRemoveKeyboard(chatId, "Поиск в базе данных по " + queryName);
             sendMessageWithKeyboard(chatId, "Введите " + queryName + " для поиска:", inlineKeyboardMarkup);
+//            sendMessageWithRemoveKeyboard(chatId, "Введите " + queryName + " для поиска:");
         } else {
             sendMessageWithKeyboard(chatId, "Недоступно в бесплатной версии");
         }
     }
 
-    private boolean checkIfExtendedAccessPermitted(Long chatId) {
+    private boolean checkIfExtendedAccessPermitted(Long chatId,BotState botState, String queryName) {
         BotUser user = botService.findUserById(chatId).orElseThrow();
-        return user.getTip() > 3;
+        if (user.getTip() > 3) {
+            return true;
+        } else {
+            int cnt = 0;
+            switch (botState) {
+                case WAITING_FOR_FLS:
+                    break;
+                case WAITING_FOR_ULS:
+                    break;
+                case WAITING_FOR_PHONE:
+                    cnt = user.getRemainPhoneReqs();
+                    break;
+                case WAITING_FOR_EMAIL:
+                    cnt = user.getRemainEmailReqs();
+                    break;
+            }
+            if (cnt > 0) {
+                sendMessageWithRemoveKeyboard(chatId, "Осталось запросов по " + queryName + ": " + cnt);
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     private CompletableFuture<Integer> fetchIstInfoAsync(InfozaPhoneRem phone, long chatId) {
@@ -342,6 +380,60 @@ public class TelegramBot extends TelegramLongPollingBot {
         }, executorService);
     }
 
+
+    private CompletableFuture<Integer> fetchCloudEmailInfoAsync(String email, long chatId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String cloudInfo = cldbEmailService.getCloudEmailInfo(email);
+            if (!cloudInfo.isEmpty()) {
+                sendMessage(chatId, "<strong>CloudDB</strong>\n" + cloudInfo);
+                return 1;
+            } else {
+                return 0;
+            }
+        }, executorService);
+    }
+
+    private void showEmailInfo(String query, long chatId, Integer messageToDelete) {
+        log.info("Запрос от " + chatId + ": " + query);
+
+        String email = query.toLowerCase();
+
+        if (!EmailUtils.isValidEmail(email)) {
+            DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
+            executeMessage(deleteMessage);
+            sendMessage(chatId, "Указан невалидный email");
+            sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+            return;
+        }
+
+        List<CompletableFuture<Integer>> futures = new ArrayList<>();
+        CompletableFuture<Integer> cloudFuture = fetchCloudEmailInfoAsync(email, chatId);
+        futures.add(cloudFuture);
+
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+        allOf.thenRun(() -> {
+            boolean anySucceed = futures.stream().anyMatch(future -> future.join() == 1);
+
+            if (!anySucceed) {
+                sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
+            }
+            DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
+            executeMessage(deleteMessage);
+            sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+//            long currentUserIst = getCurrentUserIst(chatId);
+//            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
+
+            BotUser user = botService.findUserById(chatId).orElseThrow();
+            if (user.getTip() <= 3) {
+                user.setRemainEmailReqs(user.getRemainEmailReqs()-1);
+                botUserRepository.save(user);
+            }
+
+        });
+
+    }
+
     private void showPhoneInfo(String query, long chatId, Integer messageToDelete) {
         log.info("Запрос от " + chatId + ": " + query);
         List<CompletableFuture<Integer>> futures = new ArrayList<>();
@@ -390,7 +482,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             executeMessage(deleteMessage);
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
             long currentUserIst = getCurrentUserIst(chatId);
-            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
+            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone,chatId);
         });
 
     }
@@ -400,8 +492,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         return user.getIst();
     }
 
-    private void savePhoneRequest(long ist, String formattedPhoneNumber, InfozaPhone infozaPhone) {
+    private void savePhoneRequest(long ist, String formattedPhoneNumber, InfozaPhone infozaPhone, long chatId) {
         Instant date = Instant.now(); // Устанавливаем текущую дату и время
+
+        BotUser user = botService.findUserById(chatId).orElseThrow();
+        if (user.getTip() <= 3) {
+            user.setRemainPhoneReqs(user.getRemainPhoneReqs()-1);
+            botUserRepository.save(user);
+        }
 
         if (infozaPhone==null) {
             // Создаем новый объект InfozaPhone
@@ -835,10 +933,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         KeyboardRow row = new KeyboardRow();
         row.add(EMPLOYEES_BUTTON);
         keyboardRows.add(row);
-
-        row = new KeyboardRow();
         row.add(FLS_BUTTON);
         row.add(ULS_BUTTON);
+
+        row = new KeyboardRow();
+        row.add(EMAILS_BUTTON);
         row.add(PHONES_BUTTON);
 
         keyboardRows.add(row);
