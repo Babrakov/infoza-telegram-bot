@@ -418,18 +418,18 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (!anySucceed) {
                 sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
+            } else {
+                BotUser user = botService.findUserById(chatId).orElseThrow();
+                if (user.getTip() <= 3) {
+                    user.setRemainEmailReqs(user.getRemainEmailReqs()-1);
+                    botUserRepository.save(user);
+                }
             }
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
             executeMessage(deleteMessage);
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
 //            long currentUserIst = getCurrentUserIst(chatId);
 //            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
-
-            BotUser user = botService.findUserById(chatId).orElseThrow();
-            if (user.getTip() <= 3) {
-                user.setRemainEmailReqs(user.getRemainEmailReqs()-1);
-                botUserRepository.save(user);
-            }
 
         });
 
@@ -478,12 +478,18 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (phones.isEmpty() && !anySucceed) {
                 sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
+            } else {
+                BotUser user = botService.findUserById(chatId).orElseThrow();
+                if (user.getTip() <= 3) {
+                    user.setRemainPhoneReqs(user.getRemainPhoneReqs()-1);
+                    botUserRepository.save(user);
+                }
             }
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
             executeMessage(deleteMessage);
             sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
             long currentUserIst = getCurrentUserIst(chatId);
-            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone,chatId);
+            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
         });
 
     }
@@ -493,14 +499,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         return user.getIst();
     }
 
-    private void savePhoneRequest(long ist, String formattedPhoneNumber, InfozaPhone infozaPhone, long chatId) {
+    private void savePhoneRequest(long ist, String formattedPhoneNumber, InfozaPhone infozaPhone) {
         Instant date = Instant.now(); // Устанавливаем текущую дату и время
-
-        BotUser user = botService.findUserById(chatId).orElseThrow();
-        if (user.getTip() <= 3) {
-            user.setRemainPhoneReqs(user.getRemainPhoneReqs()-1);
-            botUserRepository.save(user);
-        }
 
         if (infozaPhone==null) {
             // Создаем новый объект InfozaPhone
@@ -541,7 +541,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "<strong>Запросы</strong>\n" + answer);
             }
 
-            return 1;
+            return 0;
         }, executorService);
     }
 
