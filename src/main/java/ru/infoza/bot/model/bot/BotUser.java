@@ -36,6 +36,9 @@ public class BotUser {
     @Column(name = "remain_email_reqs")
     private int remainEmailReqs;
 
+    @Column(name = "remain_car_reqs")
+    private int remainCarReqs;
+
     @Column(name = "registered_at")
     private Timestamp registeredAt;
 

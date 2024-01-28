@@ -31,6 +31,7 @@ import ru.infoza.bot.model.infoza.*;
 import ru.infoza.bot.repository.bot.BotUserRepository;
 import ru.infoza.bot.service.bot.BotService;
 import ru.infoza.bot.service.cldb.CldbEmailService;
+import ru.infoza.bot.service.cldb.CldbCarService;
 import ru.infoza.bot.service.infoza.*;
 import ru.infoza.bot.util.EmailUtils;
 
@@ -65,6 +66,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final BotService botService;
     private final InfozaPhoneService infozaPhoneService;
     private final CldbEmailService cldbEmailService;
+    private final CldbCarService cldbCarService;
     private final InfozaUserService infozaUserService;
     private final InfozaPhysicalPersonService infozaPhysicalPersonService;
     private final InfozaJuridicalPersonService infozaJuridicalPersonService;
@@ -72,20 +74,23 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
     public TelegramBot(BotConfig config, BotService botService, BotStateContext botStateContext,
-                       InfozaPhoneService infozaPhoneService, CldbEmailService cldbEmailService, InfozaUserService infozaUserService,
+                       InfozaPhoneService infozaPhoneService, InfozaUserService infozaUserService,
                        InfozaPhysicalPersonService infozaPhysicalPersonService,
                        InfozaJuridicalPersonService infozaJuridicalPersonService,
                        InfozaBankService infozaBankService,
-                       BotUserRepository botUserRepository) {
+                       BotUserRepository botUserRepository,
+                       CldbEmailService cldbEmailService,
+                       CldbCarService cldbCarService) {
         this.config = config;
         this.infozaPhoneService = infozaPhoneService;
         this.botService = botService;
-        this.cldbEmailService = cldbEmailService;
         this.infozaUserService = infozaUserService;
         this.infozaPhysicalPersonService = infozaPhysicalPersonService;
         this.infozaJuridicalPersonService = infozaJuridicalPersonService;
         this.botStateContext = botStateContext;
         this.infozaBankService = infozaBankService;
+        this.cldbEmailService = cldbEmailService;
+        this.cldbCarService = cldbCarService;
 
         List<BotCommand> listCommands = new ArrayList<>();
         listCommands.add(new BotCommand("/start", "Запустить бота"));
@@ -153,6 +158,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                             messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
                             showEmailInfo(query, chatId, messageId);
                             break;
+                        case WAITING_FOR_CAR:
+                            messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
+                            showCarInfo(query, chatId, messageId);
+                            break;
                     }
                     // После завершения обработки сообщения сбрасываем состояние обратно в START
                     botStateContext.setUserState(chatId, BotState.START);
@@ -212,6 +221,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                         break;
                     case EMAILS_BUTTON:
                         proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_EMAIL, "email");
+                        break;
+                    case CARS_BUTTON:
+                        proceedExtendedAction(chatId, inlineKeyboardMarkup, BotState.WAITING_FOR_CAR, "№ авто");
                         break;
                     default:
                         sendMessage(chatId, "Извините, данная команда не поддерживается");
@@ -294,6 +306,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
                 case WAITING_FOR_EMAIL:
                     cnt = user.getRemainEmailReqs();
+                    break;
+                case WAITING_FOR_CAR:
+                    cnt = user.getRemainCarReqs();
                     break;
             }
             if (cnt > 0) {
@@ -392,6 +407,104 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return 0;
             }
         }, executorService);
+    }
+
+    private CompletableFuture<Integer> fetchCloudCarInfoAsync(String car, long chatId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String cloudInfo = cldbCarService.getCloudCarInfo(car);
+            if (!cloudInfo.isEmpty()) {
+                sendMessage(chatId, "<strong>CloudDB</strong>\n" + cloudInfo);
+                return 1;
+            } else {
+                return 0;
+            }
+        }, executorService);
+    }
+
+    private boolean isValidCar(String carNumber) {
+        // Regular expressions for valid car numbers
+        String regex1 = "^[АВСЕНКМОРТХУ]\\d{3}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
+        String regex2 = "^\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
+        String regex3 = "^[АВСЕНКМОРТХУ]{2}\\d{4}\\d{2,3}$";
+        String regex4 = "^\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
+        String regex5 = "^[АВСЕНКМОРТХУ]{2}\\d{3}\\d{2,3}$";
+        String regex6 = "^[АВСЕНКМОРТХУ]{1}\\d{4}\\d{2,3}$";
+        String regex7 = "^\\d{3}[АВСЕНКМОРТХУ]{1}\\d{2,3}$";
+
+        // Check if the car number matches any of the regular expressions
+        return carNumber.matches(regex1) ||
+                carNumber.matches(regex2) ||
+                carNumber.matches(regex3) ||
+                carNumber.matches(regex4) ||
+                carNumber.matches(regex5) ||
+                carNumber.matches(regex6) ||
+                carNumber.matches(regex7);
+    }
+
+    private String replaceLatinWithCyrillic(String input) {
+        // Define mapping of Latin to Cyrillic letters
+        String latin = "ABCEHKMOPTXY";
+        String cyrillic = "АВСЕНКМОРТХУ";
+
+        // Create a StringBuilder to build the result
+        StringBuilder result = new StringBuilder();
+
+        // Iterate through each character in the input string
+        for (char ch : input.toCharArray()) {
+            int index = latin.indexOf(ch);
+            if (index != -1) {
+                // If the character is in the mapping, replace it with the corresponding Cyrillic letter
+                result.append(cyrillic.charAt(index));
+            } else {
+                // Otherwise, keep the original character
+                result.append(ch);
+            }
+        }
+
+        // Convert the StringBuilder back to a String
+        return result.toString();
+    }
+
+
+    private void showCarInfo(String query, long chatId, Integer messageToDelete) {
+        log.info("Запрос от " + chatId + ": " + query);
+
+        String car = replaceLatinWithCyrillic(query.toUpperCase());
+
+        if (!isValidCar(car)) {
+            DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
+            executeMessage(deleteMessage);
+            sendMessage(chatId, "Указан невалидный номер авто");
+            sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+            return;
+        }
+
+        List<CompletableFuture<Integer>> futures = new ArrayList<>();
+        CompletableFuture<Integer> cloudFuture = fetchCloudCarInfoAsync(car, chatId);
+        futures.add(cloudFuture);
+
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+        allOf.thenRun(() -> {
+            boolean anySucceed = futures.stream().anyMatch(future -> future.join() == 1);
+
+            if (!anySucceed) {
+                sendMessageWithKeyboard(chatId, INFO_NOT_FOUND);
+            } else {
+                BotUser user = botService.findUserById(chatId).orElseThrow();
+                if (user.getTip() <= 3) {
+                    user.setRemainCarReqs(user.getRemainCarReqs()-1);
+                    botUserRepository.save(user);
+                }
+            }
+            DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
+            executeMessage(deleteMessage);
+            sendMessageWithKeyboard(chatId, SEARCH_COMPLETE);
+//            long currentUserIst = getCurrentUserIst(chatId);
+//            savePhoneRequest(currentUserIst,formattedPhoneNumber,infozaPhone);
+
+        });
+
     }
 
     private void showEmailInfo(String query, long chatId, Integer messageToDelete) {
@@ -949,6 +1062,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         row = new KeyboardRow();
         row.add(EMAILS_BUTTON);
+        row.add(CARS_BUTTON);
         row.add(PHONES_BUTTON);
 
         keyboardRows.add(row);

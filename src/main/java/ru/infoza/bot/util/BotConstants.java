@@ -6,6 +6,7 @@ public class BotConstants {
     public static final String ULS_BUTTON = "Организации";
     public static final String PHONES_BUTTON = "Телефоны";
     public static final String EMAILS_BUTTON = "Email";
+    public static final String CARS_BUTTON = "Авто";
     public static final String CANCEL_BUTTON = "CANCEL_BUTTON";
 
     public static final String CANCEL_REQUEST = "Запрос отменен";
