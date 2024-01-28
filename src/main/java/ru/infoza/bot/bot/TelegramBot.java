@@ -421,6 +421,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         }, executorService);
     }
 
+    private String processCarNumber(String input) {
+        if (input != null && (input.length() == 11 || input.length() == 12) && input.endsWith("RUS")) {
+            return input.substring(0, input.length() - 3);
+        } else {
+            return input;
+        }
+    }
+
     private boolean isValidCar(String carNumber) {
         // Regular expressions for valid car numbers
         String regex1 = "^[АВСЕНКМОРТХУ]\\d{3}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
@@ -469,7 +477,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void showCarInfo(String query, long chatId, Integer messageToDelete) {
         log.info("Запрос от " + chatId + ": " + query);
 
-        String car = replaceLatinWithCyrillic(query.toUpperCase());
+        String car = processCarNumber(replaceLatinWithCyrillic(query.toUpperCase()));
 
         if (!isValidCar(car)) {
             DeleteMessage deleteMessage = new DeleteMessage(String.valueOf(chatId), messageToDelete);
