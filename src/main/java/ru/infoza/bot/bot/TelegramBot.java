@@ -910,6 +910,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             botUser.setIst(idIST.intValue());
             botUser.setRemainPhoneReqs(20);
             botUser.setRemainEmailReqs(20);
+            botUser.setRemainCarReqs(20);
 
             botService.saveUser(botUser);
 
