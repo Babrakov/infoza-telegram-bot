@@ -281,7 +281,8 @@ public class InfozaPhoneService {
         StringBuilder processedString = new StringBuilder();
         for (String key : result.keySet()) {
             JsonElement value = result.get(key);
-            if (value != null && !value.isJsonNull()) {
+//            if (value != null && !value.isJsonNull()) {
+            if (value != null && !value.isJsonNull() && value.getAsString().length()!=0) {
                 processedString.append(key).append(" ");
                 processedString.append(value.getAsString()).append(", ");
             }
