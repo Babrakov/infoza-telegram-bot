@@ -1,12 +1,12 @@
 package ru.infoza.bot.util;
 public class BotConstants {
 
-    public static final String EMPLOYEES_BUTTON = "Безопасники";
-    public static final String FLS_BUTTON = "Физики";
-    public static final String ULS_BUTTON = "Организации";
-    public static final String PHONES_BUTTON = "Телефоны";
-    public static final String EMAILS_BUTTON = "Email";
-    public static final String CARS_BUTTON = "Авто";
+    public static final String EMPLOYEES_BUTTON = "\uD83D\uDD75\uD83C\uDFFB\u200D♂️ Контакты";
+    public static final String FLS_BUTTON = "\uD83D\uDE4D\uD83C\uDFFB\u200D♂️ Физики";
+    public static final String ULS_BUTTON = "\uD83C\uDFE2 Юрики";
+    public static final String PHONES_BUTTON = "☎️ Телефоны";
+    public static final String EMAILS_BUTTON = "\uD83D\uDCE7 Email";
+    public static final String CARS_BUTTON = "\uD83D\uDE97 Авто";
     public static final String CANCEL_BUTTON = "CANCEL_BUTTON";
 
     public static final String CANCEL_REQUEST = "Запрос отменен";
