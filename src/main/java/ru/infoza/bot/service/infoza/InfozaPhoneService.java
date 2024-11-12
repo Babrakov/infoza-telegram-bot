@@ -259,11 +259,11 @@ public class InfozaPhoneService {
                         // Шаг 3: Сделать запрос к таблице sourceTableName
                         JsonObject jsonResult = executeQuery(connection, tableName, recordId);
 //                        result.append("<u>").append(sourceName).append("</u>")
-                        result.append("<a href='").append(sourceUrl).append("'>")
-                                .append(sourceName).append("</a>")
+                        result.append("<b><u><a href='").append(sourceUrl).append("'>")
+                                .append(sourceName).append("</a></u></b>")
                                 .append(": ")
                                 .append(processCloudResult(jsonResult))
-                                .append("\n");
+                                .append("\n\n");
                     }
                 } else {
                     log.error("Не удалось найти имя таблицы источника.");
