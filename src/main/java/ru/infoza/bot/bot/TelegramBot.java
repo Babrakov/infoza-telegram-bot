@@ -929,19 +929,42 @@ public class TelegramBot extends TelegramLongPollingBot {
         sendMessage(chatId, answer);
     }
 
-    private void sendMessage(Long chatId, String messageText) {
+//    private void sendMessage(Long chatId, String messageText) {
+//
+//        int maxMessageLength = 4095;
+//        if (messageText.length() <= maxMessageLength) {
+//            // Отправляем сообщение целиком, так как оно короче 4096 символов
+//            sendChunk(chatId, messageText);
+//        } else {
+//            // Разбиваем сообщение на куски по 4095 символов и отправляем их поочередно
+//            for (int i = 0; i < messageText.length(); i += maxMessageLength) {
+//                int endIndex = Math.min(i + maxMessageLength, messageText.length());
+//                String chunk = messageText.substring(i, endIndex);
+//                sendChunk(chatId, chunk);
+//            }
+//        }
+//    }
 
+    private void sendMessage(Long chatId, String messageText) {
         int maxMessageLength = 4095;
-        if (messageText.length() <= maxMessageLength) {
-            // Отправляем сообщение целиком, так как оно короче 4096 символов
-            sendChunk(chatId, messageText);
-        } else {
-            // Разбиваем сообщение на куски по 4095 символов и отправляем их поочередно
-            for (int i = 0; i < messageText.length(); i += maxMessageLength) {
-                int endIndex = Math.min(i + maxMessageLength, messageText.length());
-                String chunk = messageText.substring(i, endIndex);
-                sendChunk(chatId, chunk);
+
+        // Разбиваем сообщение на части по двойному переводу строки (перевод строки, затем пустая строка)
+        String[] paragraphs = messageText.split("(?<=\n\n)");
+
+        StringBuilder chunk = new StringBuilder();
+
+        for (String paragraph : paragraphs) {
+            // Если добавление следующего абзаца превысит максимальную длину, отправляем текущий chunk
+            if (chunk.length() + paragraph.length() > maxMessageLength) {
+                sendChunk(chatId, chunk.toString());
+                chunk.setLength(0); // Сбрасываем текущий chunk
             }
+            chunk.append(paragraph); // Добавляем абзац в chunk
+        }
+
+        // Отправляем остаток, если он есть
+        if (chunk.length() > 0) {
+            sendChunk(chatId, chunk.toString());
         }
     }
 
