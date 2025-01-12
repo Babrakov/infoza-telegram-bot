@@ -356,6 +356,8 @@ public class InfozaPhoneService {
                 int columnCount = metaData.getColumnCount();
                 // Форматтер для преобразования дат
                 SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+                SimpleDateFormat timestampFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+
 
                 while (resultSet.next()) {
                     for (int i = 1; i <= columnCount; i++) {
@@ -369,6 +371,9 @@ public class InfozaPhoneService {
                                 if (value instanceof java.sql.Date) {
                                     Date dateValue = new Date(((java.sql.Date) value).getTime());
                                     result.addProperty(details.get(columnName), dateFormat.format(dateValue));
+                                } else if (value instanceof java.sql.Timestamp) {
+                                    Date timestampValue = new Date(((java.sql.Timestamp) value).getTime());
+                                    result.addProperty(details.get(columnName), timestampFormat.format(timestampValue));
                                 } else {
                                     result.addProperty(details.get(columnName), value.toString());
                                 }
