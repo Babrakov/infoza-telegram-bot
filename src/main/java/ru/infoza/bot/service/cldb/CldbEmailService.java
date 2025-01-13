@@ -2,6 +2,7 @@ package ru.infoza.bot.service.cldb;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -142,6 +143,7 @@ public class CldbEmailService {
                 int columnCount = metaData.getColumnCount();
                 // Форматтер для преобразования дат
                 SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
+                SimpleDateFormat timestampFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
 
                 while (resultSet.next()) {
                     for (int i = 1; i <= columnCount; i++) {
@@ -155,6 +157,9 @@ public class CldbEmailService {
                                 if (value instanceof java.sql.Date) {
                                     java.util.Date dateValue = new java.util.Date(((java.sql.Date) value).getTime());
                                     result.addProperty(details.get(columnName), dateFormat.format(dateValue));
+                                } else if (value instanceof java.sql.Timestamp) {
+                                    java.util.Date timestampValue = new Date(((java.sql.Timestamp) value).getTime());
+                                    result.addProperty(details.get(columnName), timestampFormat.format(timestampValue));
                                 } else {
                                     result.addProperty(details.get(columnName), value.toString());
                                 }
