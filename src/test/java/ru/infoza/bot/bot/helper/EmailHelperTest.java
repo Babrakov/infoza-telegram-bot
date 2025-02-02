@@ -1,85 +1,118 @@
 package ru.infoza.bot.bot.helper;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static ru.infoza.bot.util.BotConstants.INFO_NOT_FOUND;
-import static ru.infoza.bot.util.BotConstants.SEARCH_COMPLETE;
 
-import java.util.Optional;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import ru.infoza.bot.model.bot.BotUser;
-import ru.infoza.bot.repository.bot.BotUserRepository;
+import ru.infoza.bot.model.infoza.Email;
 import ru.infoza.bot.service.bot.BotService;
+import ru.infoza.bot.service.infoza.EmailService;
 
 @ExtendWith(MockitoExtension.class)
-class EmailHelperTest {
+public class EmailHelperTest {
 
-    private final long chatId = 12345L;
-    private final int messageToDelete = 1;
-    @Mock
-    private BotService botService;
-    @Mock
-    private BotUserRepository botUserRepository;
-    @Mock
-    private AsyncHelper asyncHelper;
-    @Mock
-    private Consumer<String> sendMessage;
-    @Mock
-    private Consumer<DeleteMessage> executeMessage;
-    @Mock
-    private Consumer<String> sendMessageWithKeyboard;
+    private static final long CHAT_ID = 12345L;
+    private static final Integer MESSAGE_ID = 6789;
+
     @InjectMocks
     private EmailHelper emailHelper;
 
-    @BeforeEach
-    void setUp() {
-        lenient().when(asyncHelper.fetchCloudEmailInfoAsync(anyString(), any()))
-                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(1));
+    @Mock
+    private BotService botService;
+
+    @Mock
+    private AsyncHelper asyncHelper;
+
+    @Mock
+    private EmailService emailService;
+
+    @Mock
+    private Consumer<String> sendMessage;
+
+    @Mock
+    private Consumer<DeleteMessage> executeMessage;
+
+    @Mock
+    private Consumer<String> sendMessageWithKeyboard;
+
+    private Email createMockEmail(String email) {
+        Email mockEmail = new Email();
+        mockEmail.setEmail(email);
+        return mockEmail;
+    }
+
+    private Instant[] getStartAndEndOfDay() {
+        LocalDate today = LocalDate.now();
+        Instant startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endOfDay = today.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
+        return new Instant[]{startOfDay, endOfDay};
     }
 
     @Test
-    void shouldHandleInvalidEmail() {
-        emailHelper.showEmailInfo("invalid_email", chatId, messageToDelete, sendMessage,
-                executeMessage, sendMessageWithKeyboard);
+    public void testShowEmailInfo_ValidEmail() {
+        String email = "test@example.com";
+        Email mockEmail = createMockEmail(email);
 
-        verify(sendMessage).accept("Указан невалидный email");
+        when(emailService.getEmailByEmail(email)).thenReturn(mockEmail);
+        when(botService.getCurrentUserIst(CHAT_ID)).thenReturn(CHAT_ID);
+
+        Instant[] dayRange = getStartAndEndOfDay();
+        when(emailService.findByIdEmailAndInIstAndCreatedAtBetween(mockEmail.getId(), CHAT_ID,
+                dayRange[0], dayRange[1])).thenReturn(null);  // No records for today
+
+        CompletableFuture<Integer> future = CompletableFuture.completedFuture(0);
+        when(asyncHelper.fetchCloudEmailInfoAsync(email, sendMessage)).thenReturn(future);
+
+        emailHelper.showEmailInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+                sendMessageWithKeyboard);
+
         verify(executeMessage).accept(any(DeleteMessage.class));
-        verify(sendMessageWithKeyboard).accept(SEARCH_COMPLETE);
+        verify(sendMessageWithKeyboard).accept("Информация не найдена");
     }
 
     @Test
-    void shouldProcessValidEmailAndDecreaseRequests() {
-        BotUser user = new BotUser();
-        user.setTip(3);
-        user.setRemainEmailReqs(5);
+    public void testShowEmailInfo_InvalidEmail() {
+        String invalidEmail = "invalid-email";
 
-        when(botService.findUserById(chatId)).thenReturn(Optional.of(user));
-        emailHelper.showEmailInfo("test@example.com", chatId, messageToDelete, sendMessage,
-                executeMessage, sendMessageWithKeyboard);
+        emailHelper.showEmailInfo(invalidEmail, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+                sendMessageWithKeyboard);
 
-        verify(botUserRepository).save(user);
-        verify(sendMessageWithKeyboard).accept(SEARCH_COMPLETE);
+        verify(executeMessage).accept(any(DeleteMessage.class));
+        verify(sendMessage).accept("Указан невалидный email");
+        verify(sendMessageWithKeyboard).accept("Поиск завершен");
     }
 
     @Test
-    void shouldHandleNotFoundEmailInfo() {
-        when(asyncHelper.fetchCloudEmailInfoAsync(anyString(), any())).thenReturn(
-                java.util.concurrent.CompletableFuture.completedFuture(0));
+    public void testShowEmailInfo_CloudRequestFailure() {
+        String email = "test@example.com";
+        Email mockEmail = createMockEmail(email);
 
-        emailHelper.showEmailInfo("notfound@example.com", chatId, messageToDelete, sendMessage,
-                executeMessage, sendMessageWithKeyboard);
+        when(emailService.getEmailByEmail(email)).thenReturn(mockEmail);
+        when(botService.getCurrentUserIst(CHAT_ID)).thenReturn(CHAT_ID);
 
-        verify(sendMessageWithKeyboard).accept(INFO_NOT_FOUND);
-        verify(sendMessageWithKeyboard).accept(SEARCH_COMPLETE);
+        Instant[] dayRange = getStartAndEndOfDay();
+        when(emailService.findByIdEmailAndInIstAndCreatedAtBetween(mockEmail.getId(), CHAT_ID,
+                dayRange[0], dayRange[1])).thenReturn(null);  // No records for today
+
+        CompletableFuture<Integer> future = CompletableFuture.completedFuture(0);
+        when(asyncHelper.fetchCloudEmailInfoAsync(email, sendMessage)).thenReturn(future);
+
+        emailHelper.showEmailInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+                sendMessageWithKeyboard);
+
+        verify(executeMessage).accept(any(DeleteMessage.class));
+        verify(sendMessageWithKeyboard).accept("Информация не найдена");
     }
 }
