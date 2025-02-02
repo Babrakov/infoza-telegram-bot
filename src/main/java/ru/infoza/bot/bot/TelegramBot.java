@@ -36,12 +36,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import ru.infoza.bot.bot.helper.CarHelper;
-import ru.infoza.bot.bot.helper.EmailHelper;
-import ru.infoza.bot.bot.helper.EmployeeHelper;
-import ru.infoza.bot.bot.helper.FlsHelper;
-import ru.infoza.bot.bot.helper.PhoneHelper;
-import ru.infoza.bot.bot.helper.UlsHelper;
+import ru.infoza.bot.bot.helper.HelperManager;
 import ru.infoza.bot.config.BotConfig;
 import ru.infoza.bot.config.state.BotState;
 import ru.infoza.bot.config.state.BotStateContext;
@@ -61,22 +56,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final BotStateContext botStateContext;
     private final BotService botService;
     private final InfozaUserService infozaUserService;
-    private final FlsHelper flsHelper;
-    private final CarHelper carHelper;
-    private final EmailHelper emailHelper;
-    private final EmployeeHelper employeeHelper;
-    private final PhoneHelper phoneHelper;
-    private final UlsHelper ulsHelper;
-
-
-    @PostConstruct
-    private void init() {
-        try {
-            this.execute(new SetMyCommands(getBotCommands(), new BotCommandScopeDefault(), null));
-        } catch (TelegramApiException e) {
-            log.error("Ошибка в настройке списка команд ботов: {}", e.getMessage());
-        }
-    }
+    private final HelperManager helperManager;
 
     private static List<BotCommand> getBotCommands() {
         List<BotCommand> listCommands = new ArrayList<>();
@@ -86,6 +66,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         listCommands.add(new BotCommand("/main", "Показать основные команды"));
         listCommands.add(new BotCommand("/logout", "Выйти"));
         return listCommands;
+    }
+
+    @PostConstruct
+    private void init() {
+        try {
+            this.execute(new SetMyCommands(getBotCommands(), new BotCommandScopeDefault(), null));
+        } catch (TelegramApiException e) {
+            log.error("Ошибка в настройке списка команд ботов: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -188,36 +177,36 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         switch (botState) {
             case WAITING_FOR_NAME_OR_COMPANY:
-                employeeHelper.showEmployeeInfo(query, chatId,
+                helperManager.getEmployeeHelper().showEmployeeInfo(query, chatId,
                         message -> sendMessageWithKeyboard(chatId, message));
                 break;
             case WAITING_FOR_FLS:
                 messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
-                flsHelper.showFlsInfo(query, chatId, messageId,
+                helperManager.getFlsHelper().showFlsInfo(query, chatId, messageId,
                         message -> sendMessage(chatId, message),
                         this::executeMessage, message -> sendMessageWithKeyboard(chatId, message));
                 break;
             case WAITING_FOR_ULS:
                 messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
-                ulsHelper.showUlsInfo(query, chatId, messageId,
+                helperManager.getUlsHelper().showUlsInfo(query, chatId, messageId,
                         message -> sendMessage(chatId, message),
                         this::executeMessage, message -> sendMessageWithKeyboard(chatId, message));
                 break;
             case WAITING_FOR_PHONE:
                 messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
-                phoneHelper.showPhoneInfo(query, chatId, messageId,
+                helperManager.getPhoneHelper().showPhoneInfo(query, chatId, messageId,
                         message -> sendMessage(chatId, message),
                         this::executeMessage, message -> sendMessageWithKeyboard(chatId, message));
                 break;
             case WAITING_FOR_EMAIL:
                 messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
-                emailHelper.showEmailInfo(query, chatId, messageId,
+                helperManager.getEmailHelper().showEmailInfo(query, chatId, messageId,
                         message -> sendMessage(chatId, message), this::executeMessage,
                         message -> sendMessageWithKeyboard(chatId, message));
                 break;
             case WAITING_FOR_CAR:
                 messageId = sendMessageWithRemoveKeyboardAndGetId(chatId, SEARCH_START);
-                carHelper.showCarInfo(query, chatId, messageId,
+                helperManager.getCarHelper().showCarInfo(query, chatId, messageId,
                         message -> sendMessage(chatId, message), this::executeMessage,
                         message -> sendMessageWithKeyboard(chatId, message));
                 break;
