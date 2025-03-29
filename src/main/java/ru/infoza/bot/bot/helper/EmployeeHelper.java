@@ -1,64 +1,71 @@
 package ru.infoza.bot.bot.helper;
 
-import static ru.infoza.bot.util.BotConstants.INFO_NOT_FOUND;
-import static ru.infoza.bot.util.PhoneUtils.formatPhoneNumber;
-
-import java.util.List;
-import java.util.function.Consumer;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import ru.infoza.bot.model.infoza.InfozaIst;
 import ru.infoza.bot.model.infoza.InfozaUser;
 import ru.infoza.bot.service.infoza.InfozaUserService;
 
+import java.util.List;
+import java.util.function.Consumer;
+
+import static ru.infoza.bot.util.BotMessages.*;
+import static ru.infoza.bot.util.PhoneUtils.formatPhoneNumber;
+
 @Slf4j
 @Component
-public class EmployeeHelper {
+@RequiredArgsConstructor
+public class EmployeeHelper implements BotHelper {
 
     private final InfozaUserService infozaUserService;
 
-    public EmployeeHelper(InfozaUserService infozaUserService) {
-        this.infozaUserService = infozaUserService;
-    }
-
-    public void showEmployeeInfo(String query, long chatId,
-            Consumer<String> sendMessageWithKeyboard) {
-        List<InfozaUser> users;
-        users = infozaUserService.findEnabledUserListByFullName(query);
-        if (users.isEmpty()) {
-            users = infozaUserService.findEnabledUserListByOrganisation(query);
-        }
+    @Override
+    public void showInfo(String query,
+                         long chatId,
+                         Integer messageToDelete,
+                         Consumer<String> sendMessage,
+                         Consumer<DeleteMessage> executeMessage,
+                         Consumer<String> sendMessageWithKeyboard) {
+        List<InfozaUser> users = getInfozaUsers(query);
         if (users.isEmpty()) {
             sendMessageWithKeyboard.accept(INFO_NOT_FOUND);
+            return;
         }
-        for (InfozaUser user : users) {
-            InfozaIst info = infozaUserService.findIstByUserName(user.getVcUSR());
 
+        StringBuilder messageBuilder = new StringBuilder();
+
+        users.forEach(user -> {
+            InfozaIst info = infozaUserService.findIstByUserName(user.getVcUSR());
             String phone = info.getVcSOT();
 
-            StringBuilder formattedPhone;
-            if (!phone.isEmpty()) {
-                formattedPhone = new StringBuilder("Телефон: ");
+            StringBuilder formattedPhone = new StringBuilder(phone.isBlank() ? EMPLOYEE_NO_PHONE : EMPLOYEE_PHONE);
+
+            if (!phone.isBlank()) {
                 if (phone.contains(",")) {
-                    String[] split = phone.split(",");
-                    for (String s : split) {
+                    for (String s : phone.split(",")) {
                         formattedPhone.append(formatPhoneNumber(s)).append(" ");
                     }
                 } else {
                     formattedPhone.append(formatPhoneNumber(phone));
                 }
-            } else {
-                formattedPhone = new StringBuilder("Телефон не указан");
             }
 
             String city = (user.getVcSITY() != null) ? user.getVcSITY() + "\n" : "";
 
-            String answer = info.getVcFIO() + "\n" +
-                    info.getVcORG() + "\n" +
-                    city +
-                    formattedPhone;
-            sendMessageWithKeyboard.accept(answer);
-        }
+            messageBuilder.append(info.getVcFIO()).append("\n")
+                    .append(info.getVcORG()).append("\n")
+                    .append(city)
+                    .append(formattedPhone).append("\n\n");
+        });
+
+        sendMessageWithKeyboard.accept(messageBuilder.toString().trim());
+    }
+
+    private List<InfozaUser> getInfozaUsers(String query) {
+        List<InfozaUser> users = infozaUserService.findEnabledUserListByFullName(query);
+        return users.isEmpty() ? infozaUserService.findEnabledUserListByOrganisation(query) : users;
     }
 
 }

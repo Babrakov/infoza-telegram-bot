@@ -1,13 +1,5 @@
 package ru.infoza.bot.bot;
 
-import static ru.infoza.bot.util.BotConstants.CANCEL_BUTTON;
-import static ru.infoza.bot.util.BotConstants.CARS_BUTTON;
-import static ru.infoza.bot.util.BotConstants.EMAILS_BUTTON;
-import static ru.infoza.bot.util.BotConstants.EMPLOYEES_BUTTON;
-import static ru.infoza.bot.util.BotConstants.FLS_BUTTON;
-import static ru.infoza.bot.util.BotConstants.PHONES_BUTTON;
-import static ru.infoza.bot.util.BotConstants.ULS_BUTTON;
-
 import java.util.ArrayList;
 import java.util.List;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -16,28 +8,30 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
+import static ru.infoza.bot.util.BotMessages.*;
+
 public class BotUtils {
 
-    static InlineKeyboardMarkup getInlineKeyboardMarkupWithCancelButton() {
-        // Создаем инлайн-клавиатуру
+    public static InlineKeyboardMarkup getInlineKeyboardMarkupWithCancelButton() {
+        // Create inline-keyboard
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
         List<InlineKeyboardButton> row = new ArrayList<>();
 
-        // Создаем кнопку "Отмена" с колбэк-данными "cancel"
-        InlineKeyboardButton cancelButton = new InlineKeyboardButton("Отмена");
-        cancelButton.setCallbackData(CANCEL_BUTTON);
+        // Create a "Cancel" button with "cancel" callback data
+        InlineKeyboardButton cancelButton = new InlineKeyboardButton(CANCEL_BUTTON);
+        cancelButton.setCallbackData(CANCEL_CALLBACK);
 
-        // Добавляем кнопку в строку и строку в клавиатуру
+        // Add the button to a row and the row to the keyboard
         row.add(cancelButton);
         rows.add(row);
 
-        // Устанавливаем клавиатуру для сообщения
+        // Set the keyboard for the message
         inlineKeyboardMarkup.setKeyboard(rows);
         return inlineKeyboardMarkup;
     }
 
-    static ReplyKeyboardMarkup mainFunctionsKeyboardMarkup() {
+    public static ReplyKeyboardMarkup mainFunctionsKeyboardMarkup() {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setSelective(true);
         keyboardMarkup.setResizeKeyboard(true);
@@ -61,19 +55,19 @@ public class BotUtils {
         return keyboardMarkup;
     }
 
-    static ReplyKeyboardMarkup getReplyKeyboardMarkup() {
+    public static ReplyKeyboardMarkup getReplyKeyboardMarkup() {
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
         replyKeyboardMarkup.setSelective(true);
         replyKeyboardMarkup.setResizeKeyboard(true);
-        replyKeyboardMarkup.setOneTimeKeyboard(true); // Клавиатура скроется после использования
+        replyKeyboardMarkup.setOneTimeKeyboard(true); // The keyboard will be hidden after use
 
         // Create a list of keyboard rows
         List<KeyboardRow> keyboard = new ArrayList<>();
 
         // First keyboard row
         KeyboardRow keyboardFirstRow = new KeyboardRow();
-        KeyboardButton button = new KeyboardButton("Разрешить");
-        button.setRequestContact(true); // Запросить номер телефона у пользователя
+        KeyboardButton button = new KeyboardButton(ALLOW_BUTTON);
+        button.setRequestContact(true); // Request the user's phone number
 
         // Add buttons to the first keyboard row
         keyboardFirstRow.add(button);

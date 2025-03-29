@@ -1,4 +1,4 @@
-package ru.infoza.bot.bot.helper;
+package ru.infoza.bot.util;
 
 import java.text.SimpleDateFormat;
 import java.time.Instant;
@@ -7,27 +7,27 @@ import java.time.format.DateTimeFormatter;
 
 public class HelperUtils {
 
-    static String getFormattedDate(Instant phone) {
+    public static String getFormattedDate(Instant phone) {
         String pattern = "dd.MM.yyyy";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         return simpleDateFormat.format(java.util.Date.from(phone));
     }
 
-    static String getFormattedDate(LocalDate date) {
+    public static String getFormattedDate(LocalDate date) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         return formatter.format(date);
     }
 
-    static String getRemark(String rem, String ist, String date) {
+    public static String getRemark(String rem, String ist, String date) {
         return rem +
-                " \n(источник: <b>" +
+                " (источник: <b>" +
                 ist +
                 "</b> " +
                 date +
-                ")";
+                ")\n";
     }
 
-    static String replaceLatinWithCyrillic(String input) {
+    public static String replaceLatinWithCyrillic(String input) {
         // Define mapping of Latin to Cyrillic letters
         String latin = "ABCEHKMOPTXY";
         String cyrillic = "АВСЕНКМОРТХУ";
@@ -51,15 +51,17 @@ public class HelperUtils {
         return result.toString();
     }
 
-    static boolean isValidCar(String carNumber) {
+    public static boolean isValidCar(String carNumber) {
         // Regular expressions for valid car numbers
         String regex1 = "^[АВСЕНКМОРТХУ]\\d{3}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
-        String regex2 = "^\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
-        String regex3 = "^[АВСЕНКМОРТХУ]{2}\\d{4}\\d{2,3}$";
+        String regex2 = "^[АВСЕНКМОРТХУ]{2}\\d{4}[АВСЕНКМОРТХУ]\\d{2,3}$";
+        String regex3 = "^[АВСЕНКМОРТХУ]\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
         String regex4 = "^\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
-        String regex5 = "^[АВСЕНКМОРТХУ]{2}\\d{3}\\d{2,3}$";
+        String regex5 = "^\\d{4}[АВСЕНКМОРТХУ]{2}\\d{2,3}$";
         String regex6 = "^[АВСЕНКМОРТХУ]{1}\\d{4}\\d{2,3}$";
-        String regex7 = "^\\d{3}[АВСЕНКМОРТХУ]{1}\\d{2,3}$";
+        String regex7 = "^[АВСЕНКМОРТХУ]{2}\\d{4}\\d{2,3}$";
+        String regex8 = "^[АВСЕНКМОРТХУ]{2}\\d{3}\\d{2,3}$";
+        String regex9 = "^\\d{3}[АВСЕНКМОРТХУ]{1}\\d{2,3}$";
 
         // Check if the car number matches any of the regular expressions
         return carNumber.matches(regex1) ||
@@ -68,7 +70,9 @@ public class HelperUtils {
                 carNumber.matches(regex4) ||
                 carNumber.matches(regex5) ||
                 carNumber.matches(regex6) ||
-                carNumber.matches(regex7);
+                carNumber.matches(regex7) ||
+                carNumber.matches(regex8) ||
+                carNumber.matches(regex9);
     }
 
 }

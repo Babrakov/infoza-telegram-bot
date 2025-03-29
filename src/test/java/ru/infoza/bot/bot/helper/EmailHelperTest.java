@@ -61,7 +61,7 @@ public class EmailHelperTest {
     }
 
     @Test
-    public void testShowEmailInfo_ValidEmail() {
+    public void testShowEmailInfo_Valid() {
         String email = "test@example.com";
         Email mockEmail = createMockEmail(email);
 
@@ -75,7 +75,7 @@ public class EmailHelperTest {
         CompletableFuture<Integer> future = CompletableFuture.completedFuture(0);
         when(asyncHelper.fetchCloudEmailInfoAsync(email, sendMessage)).thenReturn(future);
 
-        emailHelper.showEmailInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+        emailHelper.showInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
 
         verify(executeMessage).accept(any(DeleteMessage.class));
@@ -83,10 +83,10 @@ public class EmailHelperTest {
     }
 
     @Test
-    public void testShowEmailInfo_InvalidEmail() {
+    public void testShowEmailInfo_Invalid() {
         String invalidEmail = "invalid-email";
 
-        emailHelper.showEmailInfo(invalidEmail, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+        emailHelper.showInfo(invalidEmail, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
 
         verify(executeMessage).accept(any(DeleteMessage.class));
@@ -95,7 +95,7 @@ public class EmailHelperTest {
     }
 
     @Test
-    public void testShowEmailInfo_CloudRequestFailure() {
+    public void testShowInfo_CloudRequestFailure() {
         String email = "test@example.com";
         Email mockEmail = createMockEmail(email);
 
@@ -109,7 +109,7 @@ public class EmailHelperTest {
         CompletableFuture<Integer> future = CompletableFuture.completedFuture(0);
         when(asyncHelper.fetchCloudEmailInfoAsync(email, sendMessage)).thenReturn(future);
 
-        emailHelper.showEmailInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
+        emailHelper.showInfo(email, CHAT_ID, MESSAGE_ID, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
 
         verify(executeMessage).accept(any(DeleteMessage.class));

@@ -1,46 +1,43 @@
 package ru.infoza.bot.bot.helper;
 
-import static ru.infoza.bot.bot.helper.HelperUtils.getFormattedDate;
-import static ru.infoza.bot.bot.helper.HelperUtils.getRemark;
-import static ru.infoza.bot.util.BotConstants.INFO_NOT_FOUND;
-import static ru.infoza.bot.util.BotConstants.SEARCH_COMPLETE;
-import static ru.infoza.bot.util.JuridicalPersonUtils.isValidINN;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import ru.infoza.bot.model.infoza.*;
+import ru.infoza.bot.service.bot.BotService;
+import ru.infoza.bot.service.infoza.InfozaBankService;
+import ru.infoza.bot.service.infoza.InfozaJuridicalPersonService;
+import ru.infoza.bot.service.infoza.InfozaUserService;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.function.Consumer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
-import ru.infoza.bot.model.infoza.InfozaBank;
-import ru.infoza.bot.model.infoza.InfozaIst;
-import ru.infoza.bot.model.infoza.InfozaJuridicalPerson;
-import ru.infoza.bot.model.infoza.InfozaJuridicalPersonAccount;
-import ru.infoza.bot.model.infoza.InfozaJuridicalPersonRem;
-import ru.infoza.bot.service.bot.BotService;
-import ru.infoza.bot.service.infoza.InfozaBankService;
-import ru.infoza.bot.service.infoza.InfozaJuridicalPersonService;
-import ru.infoza.bot.service.infoza.InfozaUserService;
+
+import static ru.infoza.bot.util.BotMessages.*;
+import static ru.infoza.bot.util.HelperUtils.getFormattedDate;
+import static ru.infoza.bot.util.HelperUtils.getRemark;
+import static ru.infoza.bot.util.JuridicalPersonUtils.isValidINN;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UlsHelper {
+public class UlsHelper implements BotHelper {
 
     private final InfozaJuridicalPersonService juridicalPersonService;
     private final InfozaBankService bankService;
     private final InfozaUserService userService;
     private final BotService botService;
 
-    public void showUlsInfo(String query, long chatId, Integer messageToDelete,
-            Consumer<String> sendMessage, Consumer<DeleteMessage> executeMessage,
-            Consumer<String> sendMessageWithKeyboard) {
+    @Override
+    public void showInfo(String query, long chatId, Integer messageToDelete,
+                         Consumer<String> sendMessage, Consumer<DeleteMessage> executeMessage,
+                         Consumer<String> sendMessageWithKeyboard) {
         String inn = query.trim();
         if (!isValidINN(inn)) {
-            sendMessage.accept("Указан несуществующий ИНН");
+            sendMessage.accept(INVALID_INN);
             cleanupAfterProcessing(chatId, messageToDelete, executeMessage,
                     sendMessageWithKeyboard);
             return;
@@ -60,15 +57,17 @@ public class UlsHelper {
         if (juridicalPersons.isEmpty() && accounts.isEmpty() && remarks.isEmpty()) {
             sendMessage.accept(INFO_NOT_FOUND);
         } else {
-            sendMessage.accept("Запросы:\n" + buildJuridicalPersonInfo(juridicalPersons));
-            sendMessage.accept("Счета:\n" + buildAccountsInfo(accounts));
+            sendMessage.accept(REQUESTS_HEADER + buildJuridicalPersonInfo(juridicalPersons));
+            sendMessage.accept(ACCOUNTS_HEADER + buildAccountsInfo(accounts));
             saveUlsRequest(botService.getCurrentUserIst(chatId), inn, juridicalPersons);
         }
         cleanupAfterProcessing(chatId, messageToDelete, executeMessage, sendMessageWithKeyboard);
     }
 
-    private void cleanupAfterProcessing(long chatId, Integer messageToDelete,
-            Consumer<DeleteMessage> executeMessage, Consumer<String> sendMessageWithKeyboard) {
+    private void cleanupAfterProcessing(long chatId,
+                                        Integer messageToDelete,
+                                        Consumer<DeleteMessage> executeMessage,
+                                        Consumer<String> sendMessageWithKeyboard) {
         executeMessage.accept(new DeleteMessage(String.valueOf(chatId), messageToDelete));
         sendMessageWithKeyboard.accept(SEARCH_COMPLETE);
     }
@@ -108,7 +107,7 @@ public class UlsHelper {
     }
 
     private String formatBankName(String bik, InfozaBank bank, LocalDate accountDate,
-            LocalDate sixMonthsAgo, LocalDate twoMonthsAgo) {
+                                  LocalDate sixMonthsAgo, LocalDate twoMonthsAgo) {
         String bankName = bik + " " + bank.getVcNAZ();
         if (bank.getDaDEL() != null) {
             bankName = "<s>" + bankName + "</s>";
@@ -123,7 +122,7 @@ public class UlsHelper {
     }
 
     private void saveUlsRequest(long ist, String inn,
-            List<InfozaJuridicalPerson> juridicalPersons) {
+                                List<InfozaJuridicalPerson> juridicalPersons) {
         Instant now = Instant.now().truncatedTo(ChronoUnit.DAYS);
         boolean existsToday = juridicalPersons.stream()
                 .anyMatch(person -> person.getDtCRE().truncatedTo(ChronoUnit.DAYS).equals(now));
