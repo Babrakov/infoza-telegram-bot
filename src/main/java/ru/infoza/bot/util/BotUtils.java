@@ -1,4 +1,4 @@
-package ru.infoza.bot.bot;
+package ru.infoza.bot.util;
 
 import java.util.ArrayList;
 import java.util.List;

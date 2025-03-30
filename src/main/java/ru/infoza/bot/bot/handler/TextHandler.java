@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import static ru.infoza.bot.bot.BotUtils.getInlineKeyboardMarkupWithCancelButton;
-import static ru.infoza.bot.bot.BotUtils.getReplyKeyboardMarkup;
+import static ru.infoza.bot.util.BotUtils.getInlineKeyboardMarkupWithCancelButton;
+import static ru.infoza.bot.util.BotUtils.getReplyKeyboardMarkup;
 import static ru.infoza.bot.util.BotMessages.*;
 
 @Slf4j
@@ -48,7 +48,7 @@ public class TextHandler {
                 messageService.sendMessage(bot, botUser.getChatId(), textToSend);
             }
         } else if (botState != BotState.START) {
-            if (messageText.equals("/cancel")) {
+            if (messageText.equals(MENU_CANCEL_BUTTON)) {
                 botStateContext.setUserState(chatId, BotState.START);
                 messageService.sendMessageWithKeyboard(bot, chatId, CANCEL_REQUEST);
             } else if (update.hasMessage() && update.getMessage().hasText()) {
@@ -106,22 +106,33 @@ public class TextHandler {
         commandMap.put(MENU_CANCEL_BUTTON, () -> handleCancelCommand(bot, chatId));
         commandMap.put(EMPLOYEES_BUTTON, () -> handleEmployeesCommand(bot, chatId, inlineKeyboardMarkup));
 
-        Map<String, BotState> extendedActions = Map.of(
-                FLS_BUTTON, BotState.WAITING_FOR_FLS,
-                ULS_BUTTON, BotState.WAITING_FOR_ULS,
-                PHONES_BUTTON, BotState.WAITING_FOR_PHONE,
-                EMAILS_BUTTON, BotState.WAITING_FOR_EMAIL,
-                CARS_BUTTON, BotState.WAITING_FOR_CAR
+        Map<String, String> extendedCommandMap = Map.of(
+                FLS_BUTTON, "Ф.И.О. год рождения",
+                ULS_BUTTON, "ИНН",
+                PHONES_BUTTON, "№ телефона",
+                EMAILS_BUTTON, "email",
+                CARS_BUTTON, "№ авто"
         );
 
         if (commandMap.containsKey(messageText)) {
             commandMap.get(messageText).run();
-        } else if (extendedActions.containsKey(messageText)) {
-            proceedExtendedAction(bot, chatId, inlineKeyboardMarkup, extendedActions.get(messageText), messageText);
+        } else if (extendedCommandMap.containsKey(messageText)) {
+            proceedExtendedAction(bot, chatId, inlineKeyboardMarkup, getBotStateByButton(messageText), extendedCommandMap.get(messageText));
         } else {
             messageService.sendMessage(bot, chatId, "Извините, данная команда не поддерживается");
             messageService.sendMessageWithKeyboard(bot, chatId, "Основные функции");
         }
+    }
+
+    private BotState getBotStateByButton(String button) {
+        return switch (button) {
+            case FLS_BUTTON -> BotState.WAITING_FOR_FLS;
+            case ULS_BUTTON -> BotState.WAITING_FOR_ULS;
+            case PHONES_BUTTON -> BotState.WAITING_FOR_PHONE;
+            case EMAILS_BUTTON -> BotState.WAITING_FOR_EMAIL;
+            case CARS_BUTTON -> BotState.WAITING_FOR_CAR;
+            default -> throw new IllegalArgumentException("Неизвестная кнопка: " + button);
+        };
     }
 
     private void handleHelpCommand(TelegramLongPollingBot bot, long chatId, Long userId) {

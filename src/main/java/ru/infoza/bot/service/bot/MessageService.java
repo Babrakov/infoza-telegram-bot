@@ -14,7 +14,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import static ru.infoza.bot.bot.BotUtils.mainFunctionsKeyboardMarkup;
+import static ru.infoza.bot.util.BotUtils.mainFunctionsKeyboardMarkup;
 import static ru.infoza.bot.util.BotMessages.ERROR_TEXT;
 
 @Slf4j
