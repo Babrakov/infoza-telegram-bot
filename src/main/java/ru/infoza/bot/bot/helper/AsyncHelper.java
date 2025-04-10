@@ -1,67 +1,73 @@
 package ru.infoza.bot.bot.helper;
 
-import static ru.infoza.bot.bot.helper.HelperUtils.getFormattedDate;
-import static ru.infoza.bot.bot.helper.HelperUtils.getRemark;
-import static ru.infoza.bot.util.BotConstants.ERROR_TEXT;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import ru.infoza.bot.dto.GetcontactDTO;
-import ru.infoza.bot.dto.GrabContactDTO;
+import reactor.core.publisher.Mono;
+import ru.infoza.bot.dto.EmailRequestDTO;
 import ru.infoza.bot.dto.InfozaPhoneRequestDTO;
-import ru.infoza.bot.dto.NumbusterDTO;
+import ru.infoza.bot.model.infoza.Email;
 import ru.infoza.bot.model.infoza.InfozaIst;
 import ru.infoza.bot.model.infoza.InfozaPhone;
 import ru.infoza.bot.model.infoza.InfozaPhoneRem;
 import ru.infoza.bot.service.cldb.CldbCarService;
 import ru.infoza.bot.service.cldb.CldbEmailService;
+import ru.infoza.bot.service.cldb.CldbPhoneService;
+import ru.infoza.bot.service.infoza.EmailService;
 import ru.infoza.bot.service.infoza.InfozaPhoneService;
 import ru.infoza.bot.service.infoza.InfozaUserService;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+import static ru.infoza.bot.util.BotMessages.*;
+import static ru.infoza.bot.util.HelperUtils.getFormattedDate;
+import static ru.infoza.bot.util.HelperUtils.getRemark;
+import static ru.infoza.bot.util.ServiceMessages.ERROR_FETCHING_DATA;
+
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AsyncHelper {
 
     private final InfozaUserService infozaUserService;
+    private final CldbPhoneService cldbPhoneService;
     private final CldbEmailService cldbEmailService;
     private final CldbCarService cldbCarService;
+    private final InfozaPhoneService infozaPhoneService;
+    private final EmailService emailService;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(5);
-    private final InfozaPhoneService infozaPhoneService;
 
-    public AsyncHelper(InfozaUserService infozaUserService, CldbEmailService cldbEmailService,
-            CldbCarService cldbCarService, InfozaPhoneService infozaPhoneService) {
-        this.infozaUserService = infozaUserService;
-        this.cldbEmailService = cldbEmailService;
-        this.cldbCarService = cldbCarService;
-        this.infozaPhoneService = infozaPhoneService;
-    }
-
-    public CompletableFuture<Integer> fetchIstInfoAsync(
-            InfozaPhoneRem phone, long chatId, Consumer<String> sendMessage) {
+    public CompletableFuture<Integer> fetchRemInfoAsync(String formattedPhoneNumber, Consumer<String> sendMessage) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                InfozaIst ist = infozaUserService.findIstById(phone.getInIST()).orElseThrow();
-                String date = getFormattedDate(phone.getDtCRE());
-                String answer = getRemark(phone.getVcREM(), ist.getVcORG(), date);
-                sendMessage.accept(answer);  // Вызываем sendMessage с передачей ответа
+                List<InfozaPhoneRem> phoneRems = infozaPhoneService.findRemarksByPhoneNumber(formattedPhoneNumber);
+
+                String answer = phoneRems.stream()
+                        .map(remark -> {
+                            InfozaIst ist = infozaUserService.findIstById(remark.getInIST()).orElseThrow();
+                            return getRemark(remark.getVcREM(), ist.getVcORG(), getFormattedDate(remark.getDtCRE()));
+                        })
+                        .collect(Collectors.joining());
+
+                if (!answer.isEmpty()) {
+                    sendMessage.accept(COMMENTS_HEADER + answer);
+                }
                 return 1;
             } catch (Exception e) {
-                log.error(ERROR_TEXT + e.getMessage());
+                log.error(ERROR_TEXT, e.getMessage());
                 return 0;
             }
         }, executorService);
     }
 
     public CompletableFuture<Integer> fetchRequestInfoAsync(InfozaPhone infozaPhone,
-            Consumer<String> sendMessage) {
+                                                            Consumer<String> sendMessage) {
         return CompletableFuture.supplyAsync(() -> {
             StringBuilder answer = new StringBuilder();
 
@@ -72,110 +78,60 @@ public class AsyncHelper {
                         .append(shortRequest.getVcORG()).append("\n");
             }
 
-            if (answer.length() > 0) {
-                sendMessage.accept("<strong>Запросы</strong>\n" + answer);
+            if (!answer.isEmpty()) {
+                sendMessage.accept(REQUESTS_HEADER + answer);
             }
 
             return 0;
         }, executorService);
     }
 
-    public CompletableFuture<Integer> fetchSaveRuDataInfoAsync(String formattedPhoneNumber,
-            Consumer<String> sendMessage) {
+    public CompletableFuture<Integer> fetchRequestInfoAsync(Email email,
+                                                            Consumer<String> sendMessage) {
         return CompletableFuture.supplyAsync(() -> {
-            String saveRuDataInfo = infozaPhoneService.getPhoneInfo(formattedPhoneNumber);
-            if (!saveRuDataInfo.isEmpty()) {
-                sendMessage.accept("<strong>SaveRuData</strong>\n" + saveRuDataInfo);
+            StringBuilder answer = new StringBuilder();
 
-                return 1;
-            } else {
-                return 0;
+            List<EmailRequestDTO> requestList = emailService.findRequestListByEmail(
+                    email.getEmail());
+            for (EmailRequestDTO request : requestList) {
+                answer.append(getFormattedDate(request.getDate())).append(" ")
+                        .append(request.getOrg()).append("\n");
             }
+
+            if (!answer.isEmpty()) {
+                sendMessage.accept(REQUESTS_HEADER + answer);
+            }
+
+            return 0;
         }, executorService);
     }
 
-    public CompletableFuture<Integer> fetchCloudInfoAsync(String formattedPhoneNumber,
-            Consumer<String> sendMessage) {
-        return CompletableFuture.supplyAsync(() -> {
-            String cloudInfo = infozaPhoneService.getCloudPhoneInfo("7" + formattedPhoneNumber);
-            if (!cloudInfo.isEmpty()) {
-                sendMessage.accept("<strong>CloudDB</strong>\n" + cloudInfo);
-                return 1;
-            } else {
-                return 0;
-            }
-        }, executorService);
+    public CompletableFuture<Integer> fetchCloudInfoAsync(String formattedPhoneNumber, Consumer<String> sendMessage) {
+        return fetchCloudInfoAsync(cldbPhoneService.getCloudPhoneInfo("7" + formattedPhoneNumber), sendMessage);
     }
 
-    public CompletableFuture<Integer> fetchGrabContactInfoAsync(String formattedPhoneNumber,
-            Consumer<String> sendMessage) {
-        return CompletableFuture.supplyAsync(() -> {
-            List<GrabContactDTO> grabContactDTOList = infozaPhoneService.getGrabContactInfo(
-                    formattedPhoneNumber);
-            List<NumbusterDTO> numbusterDTOList = infozaPhoneService.getNumbusterInfo(
-                    7 + formattedPhoneNumber);
-            List<GetcontactDTO> getcontactDTOList = infozaPhoneService.getGetcontactInfo(
-                    7 + formattedPhoneNumber);
-            if (!grabContactDTOList.isEmpty() || !numbusterDTOList.isEmpty()
-                    || !getcontactDTOList.isEmpty()) {
-                StringBuilder messageBuilder = new StringBuilder(
-                        "<strong>GetContact & NumBuster</strong>\n");
-                for (GrabContactDTO contactDTO : grabContactDTOList) {
-                    messageBuilder
-                            .append(contactDTO.getFio());
-                    if (contactDTO.getBorn() != null && !contactDTO.getBorn().isEmpty()) {
-                        // Assuming born is in the format "yyyy-MM-dd"
-                        LocalDate birthDate = LocalDate.parse(contactDTO.getBorn());
-                        messageBuilder
-                                .append(" ")
-                                .append(birthDate.format(
-                                        DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+    public CompletableFuture<Integer> fetchCloudEmailInfoAsync(String email, Consumer<String> sendMessage) {
+        return fetchCloudInfoAsync(cldbEmailService.getCloudEmailInfo(email), sendMessage);
+    }
+
+    public CompletableFuture<Integer> fetchCloudCarInfoAsync(String car, Consumer<String> sendMessage) {
+        return fetchCloudInfoAsync(cldbCarService.getCloudCarInfo(car), sendMessage);
+    }
+
+    private CompletableFuture<Integer> fetchCloudInfoAsync(Mono<String> cloudInfoMono,
+                                                           Consumer<String> sendMessage) {
+        return cloudInfoMono
+                .doOnNext(cloudInfo -> {
+                    if (!cloudInfo.isEmpty()) {
+                        sendMessage.accept(CLOUD_DB_HEADER + cloudInfo);
                     }
-                    messageBuilder.append("\n");
-                }
-                for (NumbusterDTO numbusterDTO : numbusterDTOList) {
-                    messageBuilder
-                            .append(numbusterDTO.getName())
-                            .append("\n");
-                }
-                for (GetcontactDTO getcontactDTO : getcontactDTOList) {
-                    messageBuilder
-                            .append(getcontactDTO.getName())
-                            .append("\n");
-                }
-                sendMessage.accept(messageBuilder.toString());
-                return 1;
-            } else {
-                return 0;
-            }
-        }, executorService);
-    }
-
-
-    public CompletableFuture<Integer> fetchCloudEmailInfoAsync(String email,
-            Consumer<String> sendMessage) {
-        return CompletableFuture.supplyAsync(() -> {
-            String cloudInfo = cldbEmailService.getCloudEmailInfo(email);
-            if (!cloudInfo.isEmpty()) {
-                sendMessage.accept("<strong>CloudDB</strong>\n" + cloudInfo);
-                return 1;
-            } else {
-                return 0;
-            }
-        }, executorService);
-    }
-
-    public CompletableFuture<Integer> fetchCloudCarInfoAsync(String car,
-            Consumer<String> sendMessage) {
-        return CompletableFuture.supplyAsync(() -> {
-            String cloudInfo = cldbCarService.getCloudCarInfo(car);
-            if (!cloudInfo.isEmpty()) {
-                sendMessage.accept("<strong>CloudDB</strong>\n" + cloudInfo);
-                return 1;
-            } else {
-                return 0;
-            }
-        }, executorService);
+                })
+                .doOnError((e) -> log.error(ERROR_FETCHING_DATA, String.valueOf(e)))
+                //                .doOnTerminate(() -> log.info("doOnTerminate"))
+                .map(cloudInfo -> cloudInfo.isEmpty() ? 0 : 1)
+                .onErrorReturn(0)
+                .defaultIfEmpty(0)
+                .toFuture();
     }
 
 }

@@ -57,22 +57,22 @@ class UlsHelperTest {
     }
 
     @Test
-    void testShowUlsInfoForInvalidINN() {
+    void testShowInfoForInvalidINN() {
         String invalidInn = "123";
-        ulsHelper.showUlsInfo(invalidInn, 1L, 123, sendMessage, executeMessage,
+        ulsHelper.showInfo(invalidInn, 1L, 123, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
         verify(sendMessage).accept("Указан несуществующий ИНН");
         verifyNoMoreInteractions(juridicalPersonService, bankService, userService, botService);
     }
 
     @Test
-    void testShowUlsInfoForValidINNWithNoDataFound() {
+    void testShowInfoForValidINNWithNoDataFound() {
         String validInn = "2311114445";
         when(juridicalPersonService.findRemarkListByINN(validInn)).thenReturn(List.of());
         when(juridicalPersonService.findAccountListByINN(validInn)).thenReturn(List.of());
         when(juridicalPersonService.findJuridicalPersonByINN(validInn)).thenReturn(List.of());
 
-        ulsHelper.showUlsInfo(validInn, 1L, 123, sendMessage, executeMessage,
+        ulsHelper.showInfo(validInn, 1L, 123, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
 
         verify(sendMessage).accept("Информация не найдена");
@@ -80,7 +80,7 @@ class UlsHelperTest {
     }
 
     @Test
-    void testShowUlsInfoForValidINNWithData() {
+    void testShowInfoForValidINNWithData() {
         String validInn = "2311114445";
         InfozaJuridicalPerson juridicalPerson = new InfozaJuridicalPerson();
         juridicalPerson.setVcINN(validInn);
@@ -90,7 +90,7 @@ class UlsHelperTest {
         InfozaIst ist = new InfozaIst();
         when(userService.findIstById(any())).thenReturn(Optional.of(ist));
 
-        ulsHelper.showUlsInfo(validInn, 1L, 123, sendMessage, executeMessage,
+        ulsHelper.showInfo(validInn, 1L, 123, sendMessage, executeMessage,
                 sendMessageWithKeyboard);
 
         verify(sendMessage, atLeastOnce()).accept(anyString());

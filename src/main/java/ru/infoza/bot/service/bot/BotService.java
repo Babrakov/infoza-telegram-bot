@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import ru.infoza.bot.config.state.BotState;
+import ru.infoza.bot.model.RequestType;
 import ru.infoza.bot.model.bot.BotUser;
 import ru.infoza.bot.model.infoza.InfozaUser;
 import ru.infoza.bot.repository.bot.BotUserRepository;
@@ -109,6 +110,19 @@ public class BotService {
     public long getCurrentUserIst(Long chatId) {
         BotUser user = findUserById(chatId).orElseThrow();
         return user.getIst();
+    }
+
+    public void decrementUserRequests(long chatId, RequestType requestType) {
+        findUserById(chatId).ifPresent(user -> {
+            if (user.getTip() <= 3) {
+                switch (requestType) {
+                    case PHONE -> user.setRemainPhoneReqs(user.getRemainPhoneReqs() - 1);
+                    case EMAIL -> user.setRemainEmailReqs(user.getRemainEmailReqs() - 1);
+                    case CAR -> user.setRemainCarReqs(user.getRemainCarReqs() - 1);
+                }
+                botUserRepository.save(user);
+            }
+        });
     }
 
 }

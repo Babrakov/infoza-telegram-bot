@@ -5,13 +5,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Service
-public class CldbCarService extends AbstractCldbService {
+public class CldbPhoneService extends AbstractCldbService {
 
-    public CldbCarService(WebClient.Builder webClientBuilder) {
+    public CldbPhoneService(WebClient.Builder webClientBuilder) {
         super(webClientBuilder);
     }
 
-    public Mono<String> getCloudCarInfo(String car) {
-        return fetchInfo("/cars/" + car);
+    public Mono<String> getCloudPhoneInfo(String phone) {
+        return fetchInfo("/phones/" + phone);
     }
 }
