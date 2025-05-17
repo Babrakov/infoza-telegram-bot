@@ -66,7 +66,8 @@ public class PhoneHelper implements BotHelper {
             executeMessage.accept(new DeleteMessage(String.valueOf(chatId), messageToDelete));
             sendMessageWithKeyboard.accept(SEARCH_COMPLETE);
             long currentUserIst = botService.getCurrentUserIst(chatId);
-            savePhoneRequest(currentUserIst, formattedPhoneNumber, infozaPhone);
+            if (currentUserIst != 773)
+                savePhoneRequest(currentUserIst, formattedPhoneNumber, infozaPhone);
         });
 
     }
