@@ -104,11 +104,11 @@ public class TextHandler {
         commandMap.put(MENU_MAIN_BUTTON, () -> handleMainCommand(bot, chatId, userId));
         commandMap.put(MENU_LOGOUT_BUTTON, () -> handleLogoutCommand(bot, chatId, userId));
         commandMap.put(MENU_CANCEL_BUTTON, () -> handleCancelCommand(bot, chatId));
-        commandMap.put(EMPLOYEES_BUTTON, () -> handleEmployeesCommand(bot, chatId, inlineKeyboardMarkup));
+//        commandMap.put(EMPLOYEES_BUTTON, () -> handleEmployeesCommand(bot, chatId, inlineKeyboardMarkup));
 
         Map<String, String> extendedCommandMap = Map.of(
-                FLS_BUTTON, "Ф.И.О. год рождения",
-                ULS_BUTTON, "ИНН",
+//                FLS_BUTTON, "Ф.И.О. год рождения",
+//                ULS_BUTTON, "ИНН",
                 PHONES_BUTTON, "№ телефона",
                 EMAILS_BUTTON, "email",
                 CARS_BUTTON, "№ авто"

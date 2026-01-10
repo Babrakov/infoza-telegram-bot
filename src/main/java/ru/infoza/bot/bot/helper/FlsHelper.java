@@ -71,7 +71,7 @@ public class FlsHelper implements BotHelper {
         executeMessage.accept(deleteMessage);
         sendMessageWithKeyboard.accept(SEARCH_COMPLETE);
         long currentUserIst = botService.getCurrentUserIst(chatId);
-        if (currentUserIst != 773)
+        if (currentUserIst != 773 && currentUserIst != 42)
             saveFlsRequest(currentUserIst, hash, requests);
     }
 
