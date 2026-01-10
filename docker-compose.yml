@@ -51,6 +51,8 @@ services:
 
       # Optional: pass JVM options
       JAVA_OPTS: ${JAVA_OPTS:-}
+    volumes:
+      - ./log:/opt/bot/log
     # No ports exposed since this is a Telegram bot (no HTTP), unless you need to expose actuator or web endpoints
     networks:
       - default
