@@ -37,7 +37,7 @@ public class BotMessages {
             "Введите /logout чтобы выйти";
 
     public static final String ASK_PHONE = "Вы не авторизованы. Пожалуйста, предоставьте боту доступ к Вашему номеру телефона - нажмите кнопку \"Разрешить\". \n" +
-            "Важно: номер телефона должен быть указан у Вас в \"Настройках\" на сайте infoza.ru";
+            "Важно: номер телефона должен быть одобрен администратором";
 
     public static final String COMMENTS_HEADER = "<strong>Комментарии</strong>\n";
     public static final String REQUESTS_HEADER = "<strong>Запросы</strong>\n";
