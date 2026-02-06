@@ -60,7 +60,7 @@ public class UlsHelper implements BotHelper {
             sendMessage.accept(REQUESTS_HEADER + buildJuridicalPersonInfo(juridicalPersons));
             sendMessage.accept(ACCOUNTS_HEADER + buildAccountsInfo(accounts));
             long currentUserIst = botService.getCurrentUserIst(chatId);
-            if (currentUserIst != 773)
+            if (currentUserIst != 773 && currentUserIst != 42)
                 saveUlsRequest(currentUserIst, inn, juridicalPersons);
         }
         cleanupAfterProcessing(chatId, messageToDelete, executeMessage, sendMessageWithKeyboard);

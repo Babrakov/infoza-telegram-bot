@@ -47,6 +47,7 @@ public class ContactHandler {
             }
         } else {
             // Номер телефона отсутствует в z_ist
+            log.info("Phone number {} not confirmed for chatId {}", formattedPhoneNumber, chatId);
             messageService.sendMessage(bot, chatId, "Введенный номер телефона не подтвержден");
         }
     }

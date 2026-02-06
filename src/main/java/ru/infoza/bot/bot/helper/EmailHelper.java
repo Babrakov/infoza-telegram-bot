@@ -60,7 +60,7 @@ public class EmailHelper implements BotHelper {
             executeMessage.accept(new DeleteMessage(String.valueOf(chatId), messageToDelete));
             sendMessageWithKeyboard.accept(SEARCH_COMPLETE);
             long currentUserIst = botService.getCurrentUserIst(chatId);
-            if (currentUserIst != 773)
+            if (currentUserIst != 773 && currentUserIst != 42)
                 saveEmailRequest(currentUserIst, infozaEmail);
         });
     }

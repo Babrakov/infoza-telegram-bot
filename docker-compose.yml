@@ -22,6 +22,40 @@ services:
       MYSQL_PASSWORD: 'password'
       # Password for root access
       MYSQL_ROOT_PASSWORD: 'password'
+
+  bot:
+    build:
+      context: .
+      # optionally add dockerfile: Dockerfile
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      # Bot basic config
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_OWNER: ${BOT_OWNER}
+      API_KEY: ${API_KEY}
+      API_URL: ${API_URL}
+
+      # Spring / DataSource overrides (use host "db" when launched via compose)
+      SPRING_DATASOURCE_BOT_URL: jdbc:mysql://db:3306/bot
+      SPRING_DATASOURCE_BOT_USERNAME: ${BOT_DB_USERNAME}
+      SPRING_DATASOURCE_BOT_PASSWORD: ${BOT_DB_PASSWORD}
+
+      SPRING_DATASOURCE_INFOZA_URL: jdbc:mysql://db:3306/info?zeroDateTimeBehavior=convertToNull
+      SPRING_DATASOURCE_INFOZA_USERNAME: ${INFOZA_DB_USERNAME}
+      SPRING_DATASOURCE_INFOZA_PASSWORD: ${INFOZA_DB_PASSWORD}
+
+      # Ensure the app won't try to start a web server (properties already set but keep for clarity)
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+
+      # Optional: pass JVM options
+      JAVA_OPTS: ${JAVA_OPTS:-}
+    volumes:
+      - ./log:/opt/bot/log
+    # No ports exposed since this is a Telegram bot (no HTTP), unless you need to expose actuator or web endpoints
+    networks:
+      - default
 # Names our volume
 volumes:
   mydb:
